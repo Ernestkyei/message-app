@@ -1,0 +1,26 @@
+{
+  "name": "backend-api",
+  "version": "1.0.0",
+  "description": "Messaging app backend API",
+  "main": "server.js",
+
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "mongoose": "^9.1.5"
+  },
+
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  },
+
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
