@@ -39,12 +39,11 @@ const userSchema =  mongoose.Schema({
 )
 
 //hashing the password
-userSchema.pre('save', async function(next){
+userSchema.pre('save', async function(){
     if(!this.isModified('password'))
-        return next();
+        return;
 
     this.password = await bycrypt.hash(this.password,10);
-    next();
     
 });
 
@@ -54,4 +53,3 @@ userSchema.methods.comparePassword = async function(enteredPassword){
 };
 
 module.exports = mongoose.model('User', userSchema);
-
