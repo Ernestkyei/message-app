@@ -57,10 +57,20 @@ const loginUser = async (email, password) => {
 };
 
 
+// LOGOUT FUNCTION
+const logoutUser = async () => {
+    // With JWT, logout is handled client-side by removing the token
+    // But we return a success response for consistency
+    return {
+        success: true,
+        message: 'Logged out successfully'
+    };
+};
 
 
 
 module.exports = {
     registerUser,
     loginUser,
+    logoutUser,
 };

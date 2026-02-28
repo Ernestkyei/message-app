@@ -1,6 +1,10 @@
 const {getMyProfile, updateMyProfile} = require('../services/userService');
 
 
+
+
+
+
 exports.getMyProfile = async(req, res, next) =>{
     try{
         const user = await getMyProfile(req.user.id);
@@ -23,6 +27,7 @@ exports.updateMyProfile = async(req, res, next) =>{
         );
         res.status(200).json({
             success: true,
+            message: "Profile updated successfully",
             user:updateUser
         })
     }catch(err){

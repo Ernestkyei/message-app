@@ -6,8 +6,12 @@ const protect = require('../middlewares/authMiddleware')
 
 
 
+
+
+
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.get('/logout',protect, authController.logout);
 
 
 

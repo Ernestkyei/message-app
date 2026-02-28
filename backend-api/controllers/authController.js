@@ -40,3 +40,17 @@ exports.login = async(req, res, next) =>{
 
 
 }
+
+
+exports.logout = async(req, res, next) => {
+    try{
+        const result = await logoutUser();
+        res.status(200).json({
+            success:true,        
+            message: result.message
+    });
+    }catch(error){
+        next(error);
+    }       
+}
+
