@@ -19,10 +19,10 @@ router.use(restrictTo('admin'));
 
 //user management route
 router.get('/users', adminController.getAllUsers);
-router.post('/users/stats', adminController.getUserStats);
-router.get('/users/:id', adminController.getUserById);
-router.patch('/users/:id', adminController.updateUser);
-router.delete('/users/:id', adminController.deleteUser);
+router.post('/user/stats', adminController.getUserStats);
+router.get('/user/:id', adminController.getUserById);
+router.patch('/user/:id', adminController.updateUser);
+router.delete('/user/:id', adminController.deleteUser);
 
 
 module.exports = router;
