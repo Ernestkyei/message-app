@@ -1,4 +1,4 @@
-const {registerUser, loginUser} = require('../services/authService');
+const {registerUser, loginUser, logoutUser} = require('../services/authService');
 
 
 
@@ -53,4 +53,3 @@ exports.logout = async(req, res, next) => {
         next(error);
     }       
 }
-
