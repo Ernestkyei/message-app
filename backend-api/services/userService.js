@@ -24,8 +24,8 @@ exports.updateMyProfile = async(userId, data) =>{
     if(!user){
         throw new ApiError(404, 'User not found');
     }
-    allowedFields.forEach(field =>{
-        if(data[field]){
+    Object.keys(data).forEach(field => {
+        if(allowedFields.includes(field) && data[field] !== undefined){
             user[field] = data[field];
         }
     });
@@ -33,8 +33,3 @@ exports.updateMyProfile = async(userId, data) =>{
     user.password = undefined;
     return user;
 }
-
-
-
-
-

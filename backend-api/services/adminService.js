@@ -54,10 +54,11 @@ exports.updateUser = async (userId, data) => {
     
     if (!user) {
         throw new ApiError(404, 'User not found');
-    }
-    
-    allowedFields.forEach(field => {
-        if (data[field]) user[field] = data[field];
+    }    
+    // Only iterate over keys present in the input data
+    Object.keys(data).forEach(field => {
+        // Check if the field is allowed and the value is not undefined
+        if (allowedFields.includes(field) && data[field] !== undefined) user[field] = data[field];
     });
 
     await user.save();

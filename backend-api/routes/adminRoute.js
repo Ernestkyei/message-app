@@ -19,7 +19,7 @@ router.use(restrictTo('admin'));
 
 //user management route
 router.get('/users', adminController.getAllUsers);
-router.post('/user/stats', adminController.getUserStats);
+router.get('/user/stats', adminController.getUserStats);
 router.get('/user/:id', adminController.getUserById);
 router.patch('/user/:id', adminController.updateUser);
 router.delete('/user/:id', adminController.deleteUser);
