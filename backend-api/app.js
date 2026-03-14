@@ -4,6 +4,8 @@ const authRoutes = require('./routes/authRoute');
 const userRoutes = require('./routes/userRoute');
 const adminRoutes = require('./routes/adminRoute');
 const errorHandle = require('./middlewares/errorHandle');
+const conversationRoutes = require('./routes/conversationRoute'); 
+const messageRoutes = require('./routes/messageRoute');
 
 
 
@@ -19,8 +21,8 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users',userRoutes);
 app.use('/api/admin', adminRoutes)
-app.use('/api/message', messageRoutes);
-
+app.use('/api/messages', messageRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 
 
