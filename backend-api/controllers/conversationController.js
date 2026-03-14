@@ -1,4 +1,4 @@
-const conversationService = require('../services/conversation.service');
+const conversationService = require('../services/conservationService');
 
 // Create a new conversation
 exports.createConversation = async (req, res, next) => {
