@@ -9,8 +9,7 @@ exports.getAllUsers = async (queryParams) => {
     
     // Build filter
     const filter = {};
-    if (queryParams.role) filter.role = queryParams.role;
-    
+    if (queryParams.role) filter.role = queryParams.role;    
     // Search
     if (queryParams.search) {
         filter.$or = [
@@ -25,8 +24,7 @@ exports.getAllUsers = async (queryParams) => {
         .limit(limit)
         .sort(queryParams.sort || '-createdAt');
     
-    const total = await User.countDocuments(filter);
-    
+    const total = await User.countDocuments(filter);    
     return {
         users,
         pagination: {
@@ -50,8 +48,7 @@ exports.getUserById = async (userId) => {
 // Update user (admin)
 exports.updateUser = async (userId, data) => {
     const allowedFields = ['name', 'email', 'role'];
-    const user = await User.findById(userId);
-    
+    const user = await User.findById(userId);    
     if (!user) {
         throw new ApiError(404, 'User not found');
     }    

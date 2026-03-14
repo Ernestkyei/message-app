@@ -19,7 +19,6 @@ const registerUser = async (name, email, password) => {
     if (userExists) {
         throw new ApiError(400, 'User already exists');
     }
-
     const user = await User.create({
         name,
         email,
@@ -43,12 +42,10 @@ const loginUser = async (email, password) => {
     if (!user) {
         throw new ApiError(401, 'Invalid email or password');
     }
-       const isPasswordValid = await user.comparePassword(password);
-    
+       const isPasswordValid = await user.comparePassword(password);    
     if (!isPasswordValid) {
         throw new ApiError(401, 'Invalid email or password');
     }
-
     const token = signToken(user._id, user.role);
     return {
         user,

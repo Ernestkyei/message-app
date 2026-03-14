@@ -10,7 +10,7 @@ const restrictTo = require('../middlewares/restrictTo');
 
 
 
-//ll Admin routes require authentication and admin role
+//all Admin routes require authentication and admin role
 router.use(protect);
 router.use(restrictTo('admin'));
 
