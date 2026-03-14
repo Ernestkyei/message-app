@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const conversationController = require('../controllers/conversation.controller');
+const conversationController = require('../controllers/conversationController');
 const protect = require('../middlewares/protect');
 
 router.post('/', protect, conversationController.createConversation);
