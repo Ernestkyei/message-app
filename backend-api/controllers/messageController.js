@@ -21,9 +21,9 @@ exports.sendMessage = async(req, res, next) =>{
 
 
 //get all the message in  the conversation
-exports.getMessage = async (req, res, next) =>{
+exports.getMessages = async (req, res, next) =>{
     try{
-        const messages = messageService.getMessage(req.params.conversationId)
+        const messages = messageService.getMessages(req.params.conversationId)
         res.status(201).json({
             status: 'success', 
             data: messages
