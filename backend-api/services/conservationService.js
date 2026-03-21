@@ -42,16 +42,13 @@ exports.getConversation = async (conversationId, userId) => {
     if (!conversation) {
         throw new ApiError(404, 'Conversation not found');
     }
-
     // Make sure user is part of this conversation
     const isMember = conversation.participants.some(
         p => p._id.toString() === userId.toString()
     );
-
     if (!isMember) {
         throw new ApiError(403, 'You are not part of this conversation');
     }
-
     return conversation;
 };
 
@@ -59,11 +56,9 @@ exports.getConversation = async (conversationId, userId) => {
 // Delete a conversation
 exports.deleteConversation = async (conversationId, userId) => {
     const conversation = await Conversation.findById(conversationId);
-
     if (!conversation) {
         throw new ApiError(404, 'Conversation not found');
     }
-
     // Make sure user is part of this conversation
     const isMember = conversation.participants.some(
         p => p.toString() === userId.toString()
@@ -72,7 +67,6 @@ exports.deleteConversation = async (conversationId, userId) => {
     if (!isMember) {
         throw new ApiError(403, 'You are not part of this conversation');
     }
-
     await conversation.deleteOne();
     return { message: 'Conversation deleted successfully' };
 };

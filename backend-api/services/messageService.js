@@ -15,44 +15,37 @@ exports.sendMessage = async (senderId, conversationId, content) => {
         content
     });
 
-    // Update last message in conversation
     conversation.lastMessage = message._id;
     await conversation.save();
 
     return message;
-};  // <-- sendMessage ends here
-
-
-
-
-
-
-// Get all conversations for a user
-exports.getConversations = async (userId) => {
-    const conversations = await Conversation.find({
-        participants: userId,
-    })
-    .populate('participants', 'name email')
-    .populate('lastMessage')
-    .sort('-updatedAt');
-
-    return conversations;
 };
 
+// Get all messages in a conversation
+exports.getMessages = async (conversationId) => {
+    const messages = await Message.find({ 
+        conversation: conversationId, 
+        isDeleted: false 
+    })
+    .populate('sender', 'name email')
+    .sort('createdAt');
 
+    return messages;
+};
 
-// Create a new conversation
-exports.createConversation = async (senderId, receiverId) => {
-    const existing = await Conversation.findOne({
-        participants: { $all: [senderId, receiverId] },
-        isGroup: false
-    });
+// Delete a message
+exports.deleteMessage = async (messageId, userId) => {
+    const message = await Message.findById(messageId);
+    if (!message) {
+        throw new ApiError(404, 'Message not found');
+    }
 
-    if (existing) return existing;
+    if (message.sender.toString() !== userId.toString()) {
+        throw new ApiError(403, 'You can only delete your own messages');
+    }
 
-    const conversation = await Conversation.create({
-        participants: [senderId, receiverId]
-    });
+    message.isDeleted = true;
+    await message.save();
 
-    return conversation;
+    return message;
 };

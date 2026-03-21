@@ -4,7 +4,7 @@ require('dotenv').config({ path: '../config/config.env' });
 
 const seedAdmins = async () => {
     try {
-        // ✅ FIXED: Using MONGO_URL to match your database config
+        //Using MONGO_URL to match your database config
         await mongoose.connect(process.env.MONGO_URL);
         console.log('Connected to MongoDB\n');
         console.log('SEEDING ADMIN ACCOUNTS');
