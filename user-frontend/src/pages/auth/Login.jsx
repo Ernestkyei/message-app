@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import useAuthStore from '@/stores/authStore';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const Login = () => {
     const [page, setPage] = useState("login");
@@ -32,6 +34,8 @@ const Login = () => {
             setLoading(false);
         }
     };
+
+    const inputClass = "border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all outline-none w-full";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-700 to-blue-400 flex items-center justify-center p-4 font-sans">
@@ -90,25 +94,25 @@ const Login = () => {
                         {page === "register" && (
                             <div>
                                 <label className="text-sm font-semibold text-gray-700 block mb-1.5">Full Name</label>
-                                <input
+                                <Input
                                     name="name"
                                     value={form.name}
                                     onChange={handle}
                                     placeholder="John Doe"
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-600 transition-colors"
+                                    className={inputClass}
                                 />
                             </div>
                         )}
 
                         <div>
                             <label className="text-sm font-semibold text-gray-700 block mb-1.5">Email Address</label>
-                            <input
+                            <Input
                                 name="email"
                                 type="email"
                                 value={form.email}
                                 onChange={handle}
                                 placeholder="you@example.com"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-600 transition-colors"
+                                className={inputClass}
                             />
                         </div>
 
@@ -119,13 +123,13 @@ const Login = () => {
                                     <span className="text-xs text-blue-700 font-medium cursor-pointer">Forgot password?</span>
                                 )}
                             </div>
-                            <input
+                            <Input
                                 name="password"
                                 type="password"
                                 value={form.password}
                                 onChange={handle}
                                 placeholder="••••••••"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-600 transition-colors"
+                                className={inputClass}
                             />
                         </div>
 
@@ -138,13 +142,13 @@ const Login = () => {
                             </div>
                         )}
 
-                        <button
+                        <Button
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="w-full py-3 bg-gradient-to-r from-blue-900 to-blue-600 text-white font-bold text-sm rounded-xl mt-1 hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
+                            className="w-full bg-gradient-to-r from-blue-900 to-blue-600 text-white font-bold text-sm rounded-xl mt-1 hover:opacity-90"
                         >
                             {loading ? 'Please wait...' : page === "login" ? "Sign In" : "Create Account"}
-                        </button>
+                        </Button>
                     </div>
 
                     {/* Switch */}
