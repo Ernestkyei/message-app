@@ -4,12 +4,14 @@ import api from '@/services/api';
 import useAuthStore from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const [page, setPage] = useState("login");
     const [form, setForm] = useState({ name: "", email: "", password: "" });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const { setUser } = useAuthStore();
     const navigate = useNavigate();
 
@@ -35,7 +37,7 @@ const Login = () => {
         }
     };
 
-    const inputClass = "border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all outline-none w-full";
+    const inputClass = "border border-blue-100 rounded-xl px-4 py-2.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all outline-none w-full";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-700 to-blue-400 flex items-center justify-center p-4 font-sans">
@@ -123,14 +125,24 @@ const Login = () => {
                                     <span className="text-xs text-blue-700 font-medium cursor-pointer">Forgot password?</span>
                                 )}
                             </div>
-                            <Input
-                                name="password"
-                                type="password"
-                                value={form.password}
-                                onChange={handle}
-                                placeholder="••••••••"
-                                className={inputClass}
-                            />
+                            {/* Password with eye toggle */}
+                            <div className="relative">
+                                <Input
+                                    name="password"
+                                    type={showPassword ? "text" : "password"}
+                                    value={form.password}
+                                    onChange={handle}
+                                    placeholder="••••••••"
+                                    className={inputClass}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
                         </div>
 
                         {page === "register" && (
