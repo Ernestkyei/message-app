@@ -20,6 +20,7 @@ const Login = () => {
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
+        console.log('submitting', form)
         try {
             if (page === 'login') {
                 const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
@@ -113,7 +114,7 @@ const Login = () => {
                                 type="email"
                                 value={form.email}
                                 onChange={handle}
-                                placeholder="you@example.com"
+                                placeholder="Enter  your email address"
                                 className={inputClass}
                             />
                         </div>

@@ -3,7 +3,7 @@ import useAuthStore from "@/stores/authStore";
 
 
 const ProtectedRoute = ({children }) =>{
-    const {token } = useAuthStore;    
+    const {token } = useAuthStore();    
         if(!token){
         return <Navigate to="/auth/login"/>
     }
