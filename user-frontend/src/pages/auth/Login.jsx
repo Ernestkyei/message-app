@@ -156,7 +156,7 @@ const Login = () => {
                         {page === "login" && (
                             <div className="flex justify-end">
                                 <button className="text-xs text-blue-300 hover:text-blue-200 font-medium transition-colors hover:underline">
-                                    Forgot password
+                                    Forgot password?
                                 </button>
                             </div>
                         )}
