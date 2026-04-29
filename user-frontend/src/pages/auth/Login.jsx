@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '@/services/api';
 import useAuthStore from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
@@ -19,25 +20,63 @@ const Login = () => {
     const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
     const handleSubmit = async () => {
+              if (!form.email || !form.password) {
+            const message = 'Email and password are required';
+            setError(message);
+            toast.error(message);
+            return;
+        }
+
+        if (page === 'register' && !form.name) {
+            const message = 'Full name is required';
+            setError(message);
+            toast.error(message);
+            return;
+        }
+
         if (page === 'register' && !agreeTerms) {
-            setError('Please agree to the Terms of Service and Privacy Policy');
+            const message = 'Please agree to the Terms of Service and Privacy Policy';
+            setError(message);
+            toast.error(message);
             return;
         }
 
         setLoading(true);
         setError('');
+
         try {
+            let response;
+
             if (page === 'login') {
-                const { data } = await api.post('/auth/login', { email: form.email, password: form.password });
-                setUser(data.user, data.token);
-                navigate('/dashboard');
+                response = await api.post('/auth/login', {
+                    email: form.email,
+                    password: form.password
+                });
             } else {
-                const { data } = await api.post('/auth/register', form);
-                setUser(data.user, data.token);
-                navigate('/dashboard');
+                response = await api.post('/auth/register', form);
             }
+
+            const { data } = response;         
+            setUser(data.user, data.token);
+
+           
+            toast.success(
+                page === 'login'
+                    ? 'Login successful! 🎉'
+                    : 'Account created successfully! 🚀'
+            );
+
+    
+            navigate('/dashboard');
+
         } catch (err) {
-            setError(err.response?.data?.message || 'Something went wrong');
+            const message =
+                err.response?.data?.message ||
+                err.message ||
+                'Something went wrong';
+
+            setError(message);
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -45,7 +84,7 @@ const Login = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background circles - matching landing page */}
+            {/* Background circles */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white opacity-5" />
                 <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full bg-white opacity-5" />
