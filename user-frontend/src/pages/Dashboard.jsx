@@ -107,7 +107,7 @@ export default function Dashboard() {
     }
   };
 
-  // Handle logout with toast - matching your App.jsx style
+  // Handle logout
   const handleLogout = () => {
     toast.success('Logged out successfully!');    
     setTimeout(() => {
