@@ -24,21 +24,21 @@ const Login = () => {
         if (!form.email || !form.password) {
             const message = 'Email and password are required';
             setError(message);
-            toast.error(message);
+            toast.error(message, { position: "top-center", duration: 3000 });
             return;
         }
 
         if (page === 'register' && !form.name) {
             const message = 'Full name is required';
             setError(message);
-            toast.error(message);
+            toast.error(message, { position: "top-center", duration: 3000 });
             return;
         }
 
         if (page === 'register' && !agreeTerms) {
             const message = 'Please agree to the Terms of Service and Privacy Policy';
             setError(message);
-            toast.error(message);
+            toast.error(message, { position: "top-center", duration: 3000 });
             return;
         }
 
@@ -60,31 +60,33 @@ const Login = () => {
             const { data } = response;
             setUser(data.user, data.token);
             
-            // Show success toast only
+            // Show success toast - duration 3000 (3 seconds)
             toast.success(
                 page === 'login'
                     ? 'Login successful! 🎉'
                     : 'Account created successfully! 🚀',
                 {
                     position: "top-center",
-                    duration: 2000,
+                    duration: 3000,
                 }
             );
             
-            // Navigate immediately
-            navigate('/dashboard');
+            // Navigate after toast
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 1500);
             
         } catch (err) {
-            const message =
-                err.response?.data?.message ||
-                err.message ||
-                'Something went wrong';
+            const message = err.response?.data?.message || err.message || 'Something went wrong';
 
+            // ✅ ONLY CHANGE: Delay the error message so user can read it
             setError(message);
-            toast.error(message, {
-                position: "top-center",
-                duration: 3000,
-            });
+            
+            // Clear error after 5 seconds (so user has time to read)
+            setTimeout(() => {
+                setError('');
+            }, 5000);
+            
             setLoading(false);
         }
     };
@@ -142,7 +144,7 @@ const Login = () => {
                             ))}
                         </div>
 
-                        {/* Error Alert */}
+                        {/* Error Alert — shows for 5 seconds then disappears */}
                         {error && (
                             <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 animate-in slide-in-from-top-2 duration-200">
                                 <p className="text-red-300 text-sm text-center">{error}</p>

@@ -39,8 +39,7 @@ const Profile = () => {
         try {
             setLoading(true);
             const response = await api.get('/users/me');
-            const userData = response.data.user || response.data;
-            
+            const userData = response.data.user || response.data;            
             setFormData({
                 name: userData.name || '',
                 email: userData.email || '',
