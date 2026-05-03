@@ -1,13 +1,14 @@
 import axios from 'axios';
 import useAuthStore from '../stores/authStore'; 
 
-const api = axios.create({
-    baseURL: 'http://localhost:4000/api',
+const API_BASE = 'http://localhost:4000/api';
+
+export const api = axios.create({
+    baseURL: API_BASE,
 });
 
 // Automatically add token to every request
 api.interceptors.request.use((config) => {
-    // Try to get token from Zustand store first, then localStorage
     const token = useAuthStore.getState().token || localStorage.getItem('token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -15,7 +16,7 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Optional: Handle 401 responses by logging out
+// Handle 401 responses by logging out
 api.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -26,5 +27,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+
 
 export default api;

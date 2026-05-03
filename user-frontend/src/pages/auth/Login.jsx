@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import api from '@/services/api';
+import { api } from '@/services/api';
+import { endpoints } from '@/config/endpoints';
 import useAuthStore from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -49,12 +50,12 @@ const Login = () => {
             let response;
 
             if (page === 'login') {
-                response = await api.post('/auth/login', {
+                response = await api.post(endpoints.auth.login, {
                     email: form.email,
                     password: form.password
                 });
             } else {
-                response = await api.post('/auth/register', form);
+                response = await api.post(endpoints.auth.register, form);
             }
 
             const { data } = response;
@@ -79,10 +80,9 @@ const Login = () => {
         } catch (err) {
             const message = err.response?.data?.message || err.message || 'Something went wrong';
 
-            // ✅ ONLY CHANGE: Delay the error message so user can read it
             setError(message);
             
-            // Clear error after 5 seconds (so user has time to read)
+            // Clear error after 5 seconds
             setTimeout(() => {
                 setError('');
             }, 5000);
@@ -113,7 +113,7 @@ const Login = () => {
                             </div>
                         </div>
                         <h1 className="text-3xl font-bold text-white">
-                            MessageApp
+                            Message App
                         </h1>
                         <p className="text-white/80 text-sm mt-2">
                             {page === "login" ? "Welcome back! Let's get you signed in" : "Join us and start connecting"}
@@ -144,7 +144,7 @@ const Login = () => {
                             ))}
                         </div>
 
-                        {/* Error Alert — shows for 5 seconds then disappears */}
+                        {/* Error Alert */}
                         {error && (
                             <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 animate-in slide-in-from-top-2 duration-200">
                                 <p className="text-red-300 text-sm text-center">{error}</p>
@@ -205,9 +205,12 @@ const Login = () => {
 
                             {page === "login" && (
                                 <div className="flex justify-end">
-                                    <button className="text-xs text-blue-300 hover:text-blue-200 font-medium transition-all duration-300 hover:underline hover:scale-105">
+                                    <Link 
+                                        to="/auth/forgot-password" 
+                                        className="text-xs text-blue-300 hover:text-blue-200 font-medium transition-all duration-300 hover:underline"
+                                    >
                                         Forgot password?
-                                    </button>
+                                    </Link>
                                 </div>
                             )}
 
