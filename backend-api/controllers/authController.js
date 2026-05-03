@@ -1,4 +1,4 @@
-const {registerUser, loginUser, logoutUser} = require('../services/authService');
+const {registerUser, loginUser, logoutUser, forgotPassword, resetPassword} = require('../services/authService');
 
 
 
@@ -53,3 +53,39 @@ exports.logout = async(req, res, next) => {
         next(error);
     }       
 }
+
+// ADD FORGOT PASSWORD CONTROLLER
+exports.forgotPassword = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        const result = await forgotPassword(email);
+        
+        res.status(200).json({
+            success: true,
+            message: result.message,
+            resetURL: result.resetURL,
+            resetToken: result.resetToken
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// ADD RESET PASSWORD CONTROLLER
+exports.resetPassword = async (req, res, next) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+        
+        const result = await resetPassword(token, password);
+        
+        res.status(200).json({
+            success: true,
+            message: result.message,
+            token: result.token,
+            user: result.user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
