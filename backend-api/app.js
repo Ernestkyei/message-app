@@ -7,11 +7,7 @@ const errorHandle = require('./middlewares/errorHandle');
 const conversationRoutes = require('./routes/conversationRoute'); 
 const messageRoutes = require('./routes/messageRoute');
 
-
-
 const app = express()
-
-
 
 //middlewares
 app.use(cors({
@@ -20,18 +16,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
-
 app.use('/api/auth', authRoutes);
-app.use('/api/users',userRoutes);
-app.use('/api/admin', adminRoutes)
-app.use('/api/messages', messageRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/conversations', conversationRoutes);
-
-
-
-
-
-
+app.use('/api/conversations', messageRoutes);  // Mount message routes here
 
 //health check route
 app.get('/health', (req, res) =>{

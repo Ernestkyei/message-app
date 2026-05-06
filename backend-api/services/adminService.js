@@ -1,5 +1,9 @@
 const User = require('../models/userModel');
+const Conversation = require('../models/conversationModel');
+const Message = require('../models/messageModel');
 const ApiError = require('../utils/apiError');
+
+// ========== USER MANAGEMENT ==========
 
 // Get all users with pagination
 exports.getAllUsers = async (queryParams) => {
@@ -89,5 +93,190 @@ exports.getUserStats = async () => {
         admins,
         users,
         recent
+    };
+};
+
+// Get user conversation stats (for user table)
+exports.getUserConversationStats = async () => {
+    const users = await User.find().select('-password');
+    
+    const usersWithStats = await Promise.all(users.map(async (user) => {
+        // Count distinct conversations this user participated in
+        const conversations = await Message.distinct('conversation', { sender: user._id });
+        const conversationCount = conversations.length;
+        
+        // Get last message from this user
+        const lastMessage = await Message.findOne({ sender: user._id })
+            .sort({ createdAt: -1 });
+        
+        return {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            conversationCount,
+            lastActive: lastMessage?.createdAt || user.createdAt,
+        };
+    }));
+    
+    // Sort by conversation count (most active first)
+    usersWithStats.sort((a, b) => b.conversationCount - a.conversationCount);
+    
+    return usersWithStats;
+};
+
+// ========== CONVERSATION MANAGEMENT ==========
+
+// Get all conversations with pagination
+exports.getAllConversations = async (queryParams) => {
+    const page = parseInt(queryParams.page) || 1;
+    const limit = parseInt(queryParams.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    const conversations = await Conversation.find()
+        .populate('participants', 'name email')
+        .populate('lastMessage')
+        .sort('-updatedAt')
+        .skip(skip)
+        .limit(limit);
+    
+    // Get message count for each conversation
+    const conversationsWithCount = await Promise.all(conversations.map(async (conv) => {
+        const messageCount = await Message.countDocuments({ conversation: conv._id });
+        return {
+            ...conv.toObject(),
+            messageCount,
+        };
+    }));
+    
+    const total = await Conversation.countDocuments();
+    
+    return {
+        conversations: conversationsWithCount,
+        pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit)
+        }
+    };
+};
+
+// Get single conversation by ID with all messages
+exports.getConversationById = async (conversationId) => {
+    const conversation = await Conversation.findById(conversationId)
+        .populate('participants', 'name email');
+    
+    if (!conversation) {
+        throw new ApiError(404, 'Conversation not found');
+    }
+    
+    const messages = await Message.find({ conversation: conversationId })
+        .populate('sender', 'name email')
+        .sort('createdAt');
+    
+    return {
+        conversation,
+        messages,
+    };
+};
+
+// Delete conversation and all its messages
+exports.deleteConversation = async (conversationId) => {
+    const conversation = await Conversation.findByIdAndDelete(conversationId);
+    
+    if (!conversation) {
+        throw new ApiError(404, 'Conversation not found');
+    }
+    
+    // Delete all messages in this conversation
+    await Message.deleteMany({ conversation: conversationId });
+    
+    return { message: 'Conversation and all messages deleted successfully' };
+};
+
+// ========== MESSAGE MANAGEMENT ==========
+
+// Get all messages with pagination and filters
+exports.getAllMessages = async (queryParams) => {
+    const page = parseInt(queryParams.page) || 1;
+    const limit = parseInt(queryParams.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // Build filter
+    const filter = {};
+    if (queryParams.userId) filter.sender = queryParams.userId;
+    if (queryParams.search) {
+        filter.content = { $regex: queryParams.search, $options: 'i' };
+    }
+    
+    const messages = await Message.find(filter)
+        .populate('sender', 'name email')
+        .populate('conversation')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit);
+    
+    const total = await Message.countDocuments(filter);
+    
+    return {
+        messages,
+        pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit)
+        }
+    };
+};
+
+// Get message by ID
+exports.getMessageById = async (messageId) => {
+    const message = await Message.findById(messageId)
+        .populate('sender', 'name email')
+        .populate('conversation');
+    
+    if (!message) {
+        throw new ApiError(404, 'Message not found');
+    }
+    
+    return message;
+};
+
+// Delete message (admin)
+exports.deleteMessage = async (messageId) => {
+    const message = await Message.findByIdAndDelete(messageId);
+    
+    if (!message) {
+        throw new ApiError(404, 'Message not found');
+    }
+    
+    return { message: 'Message deleted successfully' };
+};
+
+// Get message statistics
+exports.getMessageStats = async () => {
+    const total = await Message.countDocuments();
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayCount = await Message.countDocuments({
+        createdAt: { $gte: today }
+    });
+    
+    // Get users with most messages
+    const topUsers = await Message.aggregate([
+        { $group: { _id: '$sender', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+        { $unwind: '$user' },
+        { $project: { name: '$user.name', email: '$user.email', messageCount: '$count' } }
+    ]);
+    
+    return {
+        total,
+        todayCount,
+        topUsers,
     };
 };

@@ -7,7 +7,7 @@ exports.getMyProfile = async (userId) => {
         throw new ApiError(404, 'User not found');
     }
     return user;
-}
+};
 
 // Update logged in user's profile
 exports.updateMyProfile = async (userId, data) => {
@@ -27,4 +27,16 @@ exports.updateMyProfile = async (userId, data) => {
     await user.save();
     user.password = undefined;
     return user;
-}
+};
+
+// Get all users except current user - MAKE SURE THIS IS EXACTLY THIS
+exports.getAllUsers = async (currentUserId) => {
+    console.log('getAllUsers service called with userId:', currentUserId); // Debug
+    
+    const users = await User.find({ 
+        _id: { $ne: currentUserId }
+    }).select('-password');
+    
+    console.log('Found users count:', users.length); // Debug
+    return users;
+};

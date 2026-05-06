@@ -1,5 +1,6 @@
 const adminService = require('../services/adminService');
 
+// ========== USER MANAGEMENT ==========
 
 exports.getAllUsers = async (req, res, next) => {
     try {
@@ -15,7 +16,6 @@ exports.getAllUsers = async (req, res, next) => {
     }
 };
 
-
 exports.getUserById = async (req, res, next) => {
     try {
         const user = await adminService.getUserById(req.params.id);
@@ -27,7 +27,6 @@ exports.getUserById = async (req, res, next) => {
         next(error);
     }
 };
-
 
 exports.updateUser = async (req, res, next) => {
     try {
@@ -42,25 +41,127 @@ exports.updateUser = async (req, res, next) => {
     }
 };
 
-
 exports.deleteUser = async (req, res, next) => {
     try {
-        const user = await adminService.deleteUser(req.params.id);
+        const result = await adminService.deleteUser(req.params.id);
         res.status(200).json({
             success: true,
-            message: 'user deleted successfully',
-            data: user
+            message: result.message
         });
     } catch (error) {
         next(error);
     }
 };
 
-
 exports.getUserStats = async (req, res, next) => {
     try {
         const stats = await adminService.getUserStats();
+        res.status(200).json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 
+// ========== USER CONVERSATION STATS ==========
+
+exports.getUserConversationStats = async (req, res, next) => {
+    try {
+        const stats = await adminService.getUserConversationStats();
+        res.status(200).json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ========== CONVERSATION MANAGEMENT ==========
+
+exports.getAllConversations = async (req, res, next) => {
+    try {
+        const result = await adminService.getAllConversations(req.query);
+        res.status(200).json({
+            success: true,
+            count: result.conversations.length,
+            pagination: result.pagination,
+            data: result.conversations
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getConversationById = async (req, res, next) => {
+    try {
+        const result = await adminService.getConversationById(req.params.id);
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteConversation = async (req, res, next) => {
+    try {
+        const result = await adminService.deleteConversation(req.params.id);
+        res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ========== MESSAGE MANAGEMENT ==========
+
+exports.getAllMessages = async (req, res, next) => {
+    try {
+        const result = await adminService.getAllMessages(req.query);
+        res.status(200).json({
+            success: true,
+            count: result.messages.length,
+            pagination: result.pagination,
+            data: result.messages
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getMessageById = async (req, res, next) => {
+    try {
+        const message = await adminService.getMessageById(req.params.id);
+        res.status(200).json({
+            success: true,
+            data: message
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteMessage = async (req, res, next) => {
+    try {
+        const result = await adminService.deleteMessage(req.params.id);
+        res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getMessageStats = async (req, res, next) => {
+    try {
+        const stats = await adminService.getMessageStats();
         res.status(200).json({
             success: true,
             data: stats

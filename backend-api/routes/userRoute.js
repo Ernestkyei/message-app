@@ -10,6 +10,7 @@ router.use(protect);
 
 router.get('/me', userController.getMyProfile);
 router.patch('/me', userController.updateMyProfile);
+router.get('/all', userController.getAllUsers);
 
 
 

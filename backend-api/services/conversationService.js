@@ -1,9 +1,6 @@
 const Conversation = require('../models/conversationModel');
 const ApiError = require('../utils/apiError');
 
-
-
-
 // Create a new conversation
 exports.createConversation = async (senderId, receiverId) => {
     const existing = await Conversation.findOne({
@@ -18,8 +15,6 @@ exports.createConversation = async (senderId, receiverId) => {
     return conversation;
 };
 
-
-
 // Get all conversations for a user
 exports.getConversations = async (userId) => {
     const conversations = await Conversation.find({
@@ -29,10 +24,7 @@ exports.getConversations = async (userId) => {
     .populate('lastMessage')
     .sort('-updatedAt');
     return conversations;
-
 };
-
-
 
 // Get a single conversation
 exports.getConversation = async (conversationId, userId) => {
@@ -51,7 +43,6 @@ exports.getConversation = async (conversationId, userId) => {
     }
     return conversation;
 };
-
 
 // Delete a conversation
 exports.deleteConversation = async (conversationId, userId) => {
