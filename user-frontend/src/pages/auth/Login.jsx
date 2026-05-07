@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api } from '@/services/api';
-import { endpoints } from '@/config/endpoints';
+import { endpoints } from '@/config/endpoints/endpoints';
 import useAuthStore from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';

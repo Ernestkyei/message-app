@@ -9,18 +9,17 @@ import {
   Edit2, 
   Save, 
   X, 
-  LogOut,
-  ChevronLeft,
   Award,
   Calendar,
   Shield
 } from 'lucide-react';
-import api from '../services/api';
+import api from '../../services/api';
 import useAuthStore from '@/stores/authStore';
+import Header from '../../components/common/Header';
 
 const Profile = () => {
     const navigate = useNavigate();
-    const { user, setUser, logout } = useAuthStore();
+    const { user, setUser } = useAuthStore();
     const [loading, setLoading] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [formData, setFormData] = useState({
@@ -48,7 +47,6 @@ const Profile = () => {
                 bio: userData.bio || ''
             });
             
-            
             const currentToken = user?.token || localStorage.getItem('token');
             setUser(userData, currentToken);
             
@@ -75,11 +73,9 @@ const Profile = () => {
             
             const updatedUser = response.data.user || response.data;
             
-            
             const currentToken = user?.token || localStorage.getItem('token');
             setUser(updatedUser, currentToken);
             
-            // Update form data with new values
             setFormData({
                 name: updatedUser.name || '',
                 email: updatedUser.email || '',
@@ -125,32 +121,8 @@ const Profile = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-            {/* Header */}
-            <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <button
-                            onClick={() => navigate('/dashboard')}
-                            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors group"
-                        >
-                            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                            <span>Back to Dashboard</span>
-                        </button>
-                        <button
-                            onClick={() => {
-                                logout();
-                                toast.success('Logged out!');
-                                navigate('/auth/login');
-                            }}
-                            className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors"
-                        >
-                            <LogOut className="w-5 h-5" />
-                            <span>Logout</span>
-                        </button>
-                    </div>
-                </div>
-            </header>
-
+            <Header showBackButton backPath="/dashboard" backLabel="Back to Dashboard" />
+            
             {/* Main Content */}
             <div className="max-w-4xl mx-auto px-6 py-12">
                 {/* Profile Header Card */}
@@ -203,7 +175,7 @@ const Profile = () => {
 
                 {/* Profile Content */}
                 {editMode ? (
-                    // Edit Mode Form - Inputs pre-filled with formData
+                    // Edit Mode Form
                     <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                         <div className="px-8 py-6 border-b border-gray-100">
                             <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -376,7 +348,7 @@ const Profile = () => {
                             </div>
                         </div>
 
-                        {/* Bio Card - Full Width */}
+                        {/* Bio Card */}
                         {formData.bio && (
                             <div className="md:col-span-2 bg-white rounded-2xl shadow-xl overflow-hidden">
                                 <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
@@ -387,26 +359,6 @@ const Profile = () => {
                                 </div>
                             </div>
                         )}
-
-                        {/* Stats Card */}
-                        <div className="md:col-span-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl overflow-hidden">
-                            <div className="px-6 py-8">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                    <div className="text-center text-white">
-                                        <p className="text-3xl font-bold">0</p>
-                                        <p className="text-sm opacity-90 mt-1">Messages Sent</p>
-                                    </div>
-                                    <div className="text-center text-white">
-                                        <p className="text-3xl font-bold">0</p>
-                                        <p className="text-sm opacity-90 mt-1">Messages Received</p>
-                                    </div>
-                                    <div className="text-center text-white">
-                                        <p className="text-3xl font-bold">0</p>
-                                        <p className="text-sm opacity-90 mt-1">Active Chats</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
             </div>

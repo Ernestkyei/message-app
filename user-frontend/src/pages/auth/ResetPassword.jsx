@@ -4,7 +4,7 @@ import { Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
-import endpoints from '@/config/endpoints';
+import endpoints from '@/config/endpoints/endpoints';
 import toast from 'react-hot-toast';
 
 const ResetPassword = () => {

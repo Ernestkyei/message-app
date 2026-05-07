@@ -4,7 +4,7 @@ import { Mail, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/services/api';
-import { endpoints } from '@/config/endpoints';
+import { endpoints } from '@/config/endpoints/endpoints';
 import toast from 'react-hot-toast';
 
 const ForgotPassword = () => {

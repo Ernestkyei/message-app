@@ -1,3 +1,4 @@
+// src/config/endpoints/endpoints.js
 const API_BASE = 'http://localhost:4000/api';
 
 export const endpoints = {
@@ -12,13 +13,17 @@ export const endpoints = {
         getMe: `${API_BASE}/users/me`,
         updateMe: `${API_BASE}/users/me`,
         changePassword: `${API_BASE}/users/change-password`,
+        getAll: `${API_BASE}/users`,           // ✅ ADD THIS for regular users list
+        getAllUsers: `${API_BASE}/users/all`,  // This one gets ALL users including admins
     },
     messages: {
-        send: `${API_BASE}/messages`,
-        getConversations: `${API_BASE}/messages/conversations`,
-        getMessages: (conversationId) => `${API_BASE}/messages/${conversationId}`,
-        deleteMessage: (id) => `${API_BASE}/messages/${id}`,
-        markAsRead: (conversationId) => `${API_BASE}/messages/${conversationId}/read`,
+        send: `${API_BASE}/conversations/:conversationId/messages`,
+        getMessages: (conversationId) => `${API_BASE}/conversations/${conversationId}/messages`,
+        markAsRead: (conversationId) => `${API_BASE}/conversations/${conversationId}/read`,
+        getTotalUnread: `${API_BASE}/conversations/unread/count`,
+        deleteMessage: (id) => `${API_BASE}/conversations/messages/${id}`,      
+        hideMessage: (id) => `${API_BASE}/conversations/messages/${id}/hide`,  
+        unhideMessage: (id) => `${API_BASE}/conversations/messages/${id}/unhide`, 
     },
     conversations: {
         getAll: `${API_BASE}/conversations`,
