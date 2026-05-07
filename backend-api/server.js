@@ -7,22 +7,29 @@ dotenv.config({ path: './config/config.env' });
 
 const app = require('./app');
 const connectDb = require('./config/db');
+const Message = require('./models/messageModel');
+const Conversation = require('./models/conversationModel');
+const User = require('./models/userModel');
 
+// ==================== INITIALIZATION ====================
 connectDb();
-
 const server = http.createServer(app);
+const PORT = process.env.PORT || 4000;
 
+// ==================== SOCKET.IO SETUP ====================
 const io = socketIO(server, {
     cors: {
-        origin: process.env.FRONTEND_URL,
+        origin: ['http://localhost:3000', 'http://localhost:5173'],
         credentials: true
     }
 });
 
 app.set('io', io);
 
-const onlineUsers = new Map();
+// ==================== STORAGE ====================
+const onlineUsers = new Map(); // userId -> socketId
 
+// ==================== AUTHENTICATION MIDDLEWARE ====================
 io.use((socket, next) => {
     const token = socket.handshake.query.token;
     if (!token) {
@@ -36,40 +43,99 @@ io.use((socket, next) => {
     });
 });
 
+// ==================== CONNECTION HANDLER ====================
 io.on('connection', (socket) => {
-    console.log('✅ User connected:', socket.userId);
+    const userId = socket.userId;
     
-    onlineUsers.set(socket.userId, socket.id);
+    // --- User Setup ---
+    onlineUsers.set(userId, socket.id);
+    socket.join(`user_${userId}`);
+    console.log(`User connected: ${userId} (${onlineUsers.size} online)`);
     
-    socket.broadcast.emit('userConnected', {
-        userId: socket.userId,
-        onlineUsers: Array.from(onlineUsers.keys())
+    // --- Send online status to connected user ---
+    socket.emit('onlineUsersList', { onlineUsers: Array.from(onlineUsers.keys()) });
+    socket.broadcast.emit('userConnected', { userId, onlineUsers: Array.from(onlineUsers.keys()) });
+    
+    // --- Request online users ---
+    socket.on('getOnlineUsers', () => {
+        socket.emit('onlineUsersList', { onlineUsers: Array.from(onlineUsers.keys()) });
     });
     
-    socket.emit('onlineUsersList', {
-        onlineUsers: Array.from(onlineUsers.keys())
+    // --- Send Message ---
+    socket.on('sendMessage', async (data) => {
+        try {
+            const { conversationId, content } = data;
+            console.log(`Message from ${userId} to conversation ${conversationId}`);
+            
+            // Save to database
+            const message = await Message.create({
+                conversation: conversationId,
+                sender: userId,
+                content,
+                read: false
+            });
+            
+            // Get conversation
+            const conversation = await Conversation.findById(conversationId);
+            if (!conversation) {
+                socket.emit('messageError', { error: 'Conversation not found' });
+                return;
+            }
+            
+            // Populate sender info
+            const populatedMessage = await Message.findById(message._id)
+                .populate('sender', 'name email avatar');
+            
+            // Update conversation
+            await Conversation.findByIdAndUpdate(conversationId, {
+                lastMessage: message._id,
+                lastMessageText: content,
+                lastMessageTime: new Date()
+            });
+            
+            // Broadcast to all participants
+            const participants = conversation.participants.map(p => p.toString());
+            participants.forEach(participantId => {
+                io.to(`user_${participantId}`).emit('newMessage', { success: true, data: populatedMessage });
+            });
+            
+            console.log(`Message sent to ${participants.length} participants`);
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            socket.emit('messageError', { success: false, error: error.message });
+        }
     });
     
-    socket.join(socket.userId);
+    // --- Mark Messages as Read ---
+    socket.on('markAsRead', async (data) => {
+        try {
+            const { conversationId } = data;
+            await Message.updateMany(
+                { conversation: conversationId, sender: { $ne: userId }, read: false },
+                { read: true }
+            );
+            console.log(`${userId} read messages in ${conversationId}`);
+        } catch (error) {
+            console.error('Error marking messages as read:', error);
+        }
+    });
     
+    // --- Disconnect ---
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.userId);
-        onlineUsers.delete(socket.userId);
-        socket.broadcast.emit('userDisconnected', {
-            userId: socket.userId,
-            onlineUsers: Array.from(onlineUsers.keys())
-        });
+        onlineUsers.delete(userId);
+        console.log(`❌ User disconnected: ${userId} (${onlineUsers.size} online)`);
+        socket.broadcast.emit('userDisconnected', { userId, onlineUsers: Array.from(onlineUsers.keys()) });
     });
 });
 
+// ==================== API ROUTES ====================
 app.get('/api/online-users', (req, res) => {
-    res.json({
-        success: true,
-        onlineUsers: Array.from(onlineUsers.keys())
-    });
+    res.json({ success: true, onlineUsers: Array.from(onlineUsers.keys()) });
 });
 
-server.listen(process.env.PORT, () => {
-    console.log(`Server running on port ${process.env.PORT}`);
-    console.log(` WebSocket server ready`);
+// ==================== START SERVER ====================
+server.listen(PORT, () => {
+    console.log(`\n🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📡 WebSocket ready at ws://localhost:${PORT}\n`);
 });
