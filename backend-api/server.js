@@ -13,13 +13,14 @@ const User = require('./models/userModel');
 
 // ==================== INITIALIZATION ====================
 connectDb();
+
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 // ==================== SOCKET.IO SETUP ====================
 const io = socketIO(server, {
     cors: {
-        origin: ['http://localhost:3000', 'http://localhost:5173'],
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || [],
         credentials: true
     }
 });
@@ -27,7 +28,7 @@ const io = socketIO(server, {
 app.set('io', io);
 
 // ==================== STORAGE ====================
-const onlineUsers = new Map(); // userId -> socketId
+const onlineUsers = new Map();
 
 // ==================== AUTHENTICATION MIDDLEWARE ====================
 io.use((socket, next) => {
@@ -35,7 +36,7 @@ io.use((socket, next) => {
     if (!token) {
         return next(new Error('Authentication error'));
     }
-    
+
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) return next(new Error('Authentication error'));
         socket.userId = decoded.id;
@@ -46,68 +47,57 @@ io.use((socket, next) => {
 // ==================== CONNECTION HANDLER ====================
 io.on('connection', (socket) => {
     const userId = socket.userId;
-    
-    // --- User Setup ---
+
     onlineUsers.set(userId, socket.id);
     socket.join(`user_${userId}`);
-    console.log(`User connected: ${userId} (${onlineUsers.size} online)`);
-    
-    // --- Send online status to connected user ---
+    console.log(`✅ User connected: ${userId} (${onlineUsers.size} online)`);
+
     socket.emit('onlineUsersList', { onlineUsers: Array.from(onlineUsers.keys()) });
     socket.broadcast.emit('userConnected', { userId, onlineUsers: Array.from(onlineUsers.keys()) });
-    
-    // --- Request online users ---
+
     socket.on('getOnlineUsers', () => {
         socket.emit('onlineUsersList', { onlineUsers: Array.from(onlineUsers.keys()) });
     });
-    
-    // --- Send Message ---
+
     socket.on('sendMessage', async (data) => {
         try {
             const { conversationId, content } = data;
-            console.log(`Message from ${userId} to conversation ${conversationId}`);
-            
-            // Save to database
+            console.log(`📨 Message from ${userId} to conversation ${conversationId}`);
+
             const message = await Message.create({
                 conversation: conversationId,
                 sender: userId,
                 content,
                 read: false
             });
-            
-            // Get conversation
+
             const conversation = await Conversation.findById(conversationId);
             if (!conversation) {
                 socket.emit('messageError', { error: 'Conversation not found' });
                 return;
             }
-            
-            // Populate sender info
+
             const populatedMessage = await Message.findById(message._id)
                 .populate('sender', 'name email avatar');
-            
-            // Update conversation
+
             await Conversation.findByIdAndUpdate(conversationId, {
                 lastMessage: message._id,
                 lastMessageText: content,
                 lastMessageTime: new Date()
             });
-            
-            // Broadcast to all participants
+
             const participants = conversation.participants.map(p => p.toString());
             participants.forEach(participantId => {
                 io.to(`user_${participantId}`).emit('newMessage', { success: true, data: populatedMessage });
             });
-            
-            console.log(`Message sent to ${participants.length} participants`);
-            
+
+            console.log(`✅ Message sent to ${participants.length} participants`);
         } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('❌ Error sending message:', error);
             socket.emit('messageError', { success: false, error: error.message });
         }
     });
-    
-    // --- Mark Messages as Read ---
+
     socket.on('markAsRead', async (data) => {
         try {
             const { conversationId } = data;
@@ -115,13 +105,12 @@ io.on('connection', (socket) => {
                 { conversation: conversationId, sender: { $ne: userId }, read: false },
                 { read: true }
             );
-            console.log(`${userId} read messages in ${conversationId}`);
+            console.log(`📖 ${userId} read messages in ${conversationId}`);
         } catch (error) {
-            console.error('Error marking messages as read:', error);
+            console.error('❌ Error marking messages as read:', error);
         }
     });
-    
-    // --- Disconnect ---
+
     socket.on('disconnect', () => {
         onlineUsers.delete(userId);
         console.log(`❌ User disconnected: ${userId} (${onlineUsers.size} online)`);
@@ -134,8 +123,13 @@ app.get('/api/online-users', (req, res) => {
     res.json({ success: true, onlineUsers: Array.from(onlineUsers.keys()) });
 });
 
+app.get('/api/test', (req, res) => {
+    res.json({ message: 'Server is running!', timestamp: new Date().toISOString() });
+});
+
 // ==================== START SERVER ====================
 server.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📡 WebSocket ready at ws://localhost:${PORT}\n`);
+    console.log(`📡 WebSocket ready at ws://localhost:${PORT}`);
+    console.log(`✅ CORS enabled for: ${process.env.ALLOWED_ORIGINS}\n`);
 });
