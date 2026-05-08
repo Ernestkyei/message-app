@@ -29,4 +29,7 @@ router.get('/messages/stats', adminController.getMessageStats);
 router.get('/messages/:id', adminController.getMessageById);
 router.delete('/messages/:id', adminController.deleteMessage);
 
+// ========== ANALYTICS FOR CHARTS ==========
+router.get('/analytics', adminController.getSystemAnalytics);
+
 module.exports = router;

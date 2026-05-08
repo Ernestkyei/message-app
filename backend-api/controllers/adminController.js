@@ -170,3 +170,17 @@ exports.getMessageStats = async (req, res, next) => {
         next(error);
     }
 };
+
+// ========== ANALYTICS FOR CHARTS ==========
+
+exports.getSystemAnalytics = async (req, res, next) => {
+    try {
+        const analytics = await adminService.getSystemAnalytics(req.query);
+        res.status(200).json({
+            success: true,
+            data: analytics
+        });
+    } catch (error) {
+        next(error);
+    }
+};

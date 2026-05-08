@@ -67,6 +67,104 @@ exports.updateUser = async (userId, data) => {
     return user;
 };
 
+// ========== ANALYTICS FOR CHARTS ==========
+
+exports.getSystemAnalytics = async (queryParams) => {
+    const days = parseInt(queryParams.days) || 7;
+    
+    console.log('=== ANALYTICS DEBUG ===');
+    console.log('Fetching analytics for last', days, 'days');
+    
+    // Check total messages in database
+    const totalMessagesInDb = await Message.countDocuments();
+    console.log('Total messages in database:', totalMessagesInDb);
+    
+    // Get messages per day for the last {days} days
+    const messagesPerDay = [];
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+        
+        const messageCount = await Message.countDocuments({
+            createdAt: { $gte: date, $lt: nextDate }
+        });
+        
+        const activeUserCount = await User.countDocuments({
+            lastActive: { $gte: date, $lt: nextDate }
+        });
+        
+        console.log(`${date.toLocaleDateString()}: Messages=${messageCount}, ActiveUsers=${activeUserCount}`);
+        
+        messagesPerDay.push({
+            day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            messages: messageCount,
+            users: activeUserCount
+        });
+    }
+    
+    // Get active vs inactive users (last 30 days)
+    const last30Days = new Date();
+    last30Days.setDate(last30Days.getDate() - 30);
+    
+    const activeUsers = await User.countDocuments({
+        lastActive: { $gte: last30Days }
+    });
+    
+    const totalUsers = await User.countDocuments();
+    const inactiveUsers = totalUsers - activeUsers;
+    
+    console.log('Total Users:', totalUsers);
+    console.log('Active Users (last 30 days):', activeUsers);
+    console.log('Inactive Users:', inactiveUsers);
+    
+    // Get top users by message count
+    const topUsers = await Message.aggregate([
+        {
+            $group: {
+                _id: '$sender',
+                messageCount: { $sum: 1 }
+            }
+        },
+        {
+            $sort: { messageCount: -1 }
+        },
+        {
+            $limit: 5
+        },
+        {
+            $lookup: {
+                from: 'users',
+                localField: '_id',
+                foreignField: '_id',
+                as: 'user'
+            }
+        },
+        {
+            $unwind: '$user'
+        },
+        {
+            $project: {
+                name: '$user.name',
+                messages: '$messageCount'
+            }
+        }
+    ]);
+    
+    console.log('Top Users by Messages:', JSON.stringify(topUsers, null, 2));
+    console.log('=== END ANALYTICS ===');
+    
+    return {
+        messagesPerDay,
+        activeUsers,
+        inactiveUsers,
+        topUsers
+    };
+};
+
 // Delete user
 exports.deleteUser = async (userId) => {
     const user = await User.findByIdAndDelete(userId);
@@ -82,6 +180,14 @@ exports.getUserStats = async () => {
     const admins = await User.countDocuments({ role: 'admin' });
     const users = await User.countDocuments({ role: 'user' });
     
+    // Calculate active users in last 24 hours
+    const last24Hours = new Date();
+    last24Hours.setHours(last24Hours.getHours() - 24);
+    
+    const activeToday = await User.countDocuments({
+        lastActive: { $gte: last24Hours }
+    });
+    
     // Recent users (last 5)
     const recent = await User.find()
         .sort('-createdAt')
@@ -92,6 +198,7 @@ exports.getUserStats = async () => {
         total,
         admins,
         users,
+        activeToday,
         recent
     };
 };

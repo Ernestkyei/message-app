@@ -49,7 +49,18 @@ const userSchema = mongoose.Schema({
         trim: true,
     },
 
-    
+    // ADD THIS FIELD - For tracking user activity
+    lastActive: {
+        type: Date,
+        default: Date.now,
+    },
+
+    // ADD THIS FIELD - For tracking online status
+    isOnline: {
+        type: Boolean,
+        default: false,
+    },
+
     passwordResetToken: {
         type: String,
         select: false,
@@ -89,6 +100,13 @@ userSchema.methods.createPasswordResetToken = function() {
     this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
     
     return resetToken;
+};
+
+// ADD THIS METHOD TO UPDATE LAST ACTIVE
+userSchema.methods.updateLastActive = async function() {
+    this.lastActive = new Date();
+    this.isOnline = true;
+    await this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);

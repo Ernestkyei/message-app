@@ -1,9 +1,9 @@
+// services/authService.js
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); 
 const ApiError = require('../utils/apiError');
 const sendPasswordResetEmail = require('./emailService');
-
 
 const signToken = (id, role) => {
     return jwt.sign(
@@ -15,7 +15,6 @@ const signToken = (id, role) => {
     );
 };
 
-
 const registerUser = async (name, email, password) => {
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -24,7 +23,9 @@ const registerUser = async (name, email, password) => {
     const user = await User.create({
         name,
         email,
-        password
+        password,
+        lastActive: new Date(),
+        isOnline: true
     });
 
     const token = signToken(user._id, user.role);
@@ -35,8 +36,6 @@ const registerUser = async (name, email, password) => {
     };
 };
 
-
-// Login user
 const loginUser = async (email, password) => {
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
@@ -46,16 +45,29 @@ const loginUser = async (email, password) => {
     if (!isPasswordValid) {
         throw new ApiError(401, 'Invalid email or password');
     }
+    
+    user.lastActive = new Date();
+    user.isOnline = true;
+    await user.save();
+    
     const token = signToken(user._id, user.role);
+    
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    
     return {
-        user,
+        user: userResponse,
         token
     };
 };
 
-
-// LOGOUT FUNCTION
-const logoutUser = async () => {
+const logoutUser = async (userId) => {
+    if (userId) {
+        await User.findByIdAndUpdate(userId, {
+            isOnline: false
+        });
+    }
+    
     return {
         success: true,
         message: 'Logged out successfully'
@@ -68,14 +80,11 @@ const forgotPassword = async (email) => {
         throw new ApiError(404, 'No user found with that email');
     }
     
-    // Generate reset token
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
     
-    // SEND EMAIL TO USER (ADDED THIS LINE)
     await sendPasswordResetEmail(email, resetToken, user.name);
     
-    // Create reset URL for frontend
     const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
     
     return {
@@ -85,16 +94,12 @@ const forgotPassword = async (email) => {
     };
 };
 
-
-// RESET PASSWORD FUNCTION
 const resetPassword = async (token, newPassword) => {
-    // Hash the token from the URL
     const hashedToken = crypto
         .createHash('sha256')
         .update(token)
         .digest('hex');
     
-    // Find user with valid token
     const user = await User.findOne({
         passwordResetToken: hashedToken,
         passwordResetExpires: { $gt: Date.now() }
@@ -104,31 +109,38 @@ const resetPassword = async (token, newPassword) => {
         throw new ApiError(400, 'Token is invalid or has expired');
     }
     
-    // Update password
     user.password = newPassword;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
-    
+    user.lastActive = new Date();
     await user.save();
     
-    // Generate new login token
     const loginToken = signToken(user._id, user.role);
     
-    // Remove password from output
-    user.password = undefined;
+    const userResponse = user.toObject();
+    delete userResponse.password;
     
     return {
         message: 'Password reset successful',
         token: loginToken,
-        user
+        user: userResponse
     };
 };
 
+const updateLastActive = async (userId) => {
+    if (userId) {
+        await User.findByIdAndUpdate(userId, {
+            lastActive: new Date(),
+            isOnline: true
+        });
+    }
+};
 
 module.exports = {
     registerUser,
     loginUser,
     logoutUser,
-    forgotPassword,   
-    resetPassword,    
+    forgotPassword,
+    resetPassword,
+    updateLastActive
 };
