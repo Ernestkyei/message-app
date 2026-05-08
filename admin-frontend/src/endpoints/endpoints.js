@@ -1,35 +1,37 @@
-const API_BASE = 'http://localhost:4000/api';
-
 const endpoints = {
-  // ========== AUTHENTICATION ==========
-  auth: {
-    login: `${API_BASE}/auth/login`,
-    logout: `${API_BASE}/auth/logout`,
-  },
+    // ========== AUTHENTICATION ==========
+    auth: {
+        login: '/auth/login',
+        logout: '/auth/logout',
+        forgotPassword: '/auth/forgot-password',
+        resetPassword: (token) => `/auth/reset-password/${token}`,
+        changePassword: '/auth/change-password',
+    },
 
-  // ========== ADMIN USER MANAGEMENT ==========
-  admin: {
-    getAllUsers: `${API_BASE}/admin/users`,
-    getUserStats: `${API_BASE}/admin/user/stats`,
-    getUserById: (id) => `${API_BASE}/admin/user/${id}`,
-    updateUser: (id) => `${API_BASE}/admin/user/${id}`,
-    deleteUser: (id) => `${API_BASE}/admin/user/${id}`,
-    getUserConversationStats: `${API_BASE}/admin/users/conversation-stats`,
-  },
+    // ========== ADMIN USER MANAGEMENT ==========
+    admin: {
+        getAllUsers: '/admin/users',
+        getUserStats: '/admin/user/stats',
+        getUserById: (id) => `/admin/user/${id}`,
+        updateUser: (id) => `/admin/user/${id}`,
+        deleteUser: (id) => `/admin/user/${id}`,
+        getUserConversationStats: '/admin/users/conversation-stats',
+        broadcast: '/admin/broadcast',
+    },
 
-  // ========== ADMIN CONVERSATION MANAGEMENT ==========
-  conversations: {
-    getAll: `${API_BASE}/admin/conversations`,                    
-    getById: (id) => `${API_BASE}/admin/conversations/${id}`,    
-    delete: (id) => `${API_BASE}/admin/conversations/${id}`,     
-  },
+    // ========== ADMIN CONVERSATION MANAGEMENT ==========
+    conversations: {
+        getAll: '/admin/conversations',
+        getById: (id) => `/admin/conversations/${id}`,
+        delete: (id) => `/admin/conversations/${id}`,
+    },
 
-  // ========== ADMIN MESSAGE MODERATION ==========
-  messages: {
-    getAll: `${API_BASE}/admin/messages`,
-    getStats: `${API_BASE}/admin/messages/stats`,
-    delete: (id) => `${API_BASE}/admin/messages/${id}`,
-  },
+    // ========== ADMIN MESSAGE MODERATION ==========
+    messages: {
+        getAll: '/admin/messages',
+        getStats: '/admin/messages/stats',
+        delete: (id) => `/admin/messages/${id}`,
+    },
 };
 
 export default endpoints;
