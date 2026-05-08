@@ -17,6 +17,10 @@ const endpoints = {
         deleteUser: (id) => `/admin/user/${id}`,
         getUserConversationStats: '/admin/users/conversation-stats',
         broadcast: '/admin/broadcast',
+        dashboard: '/admin/dashboard',        
+        health: '/admin/health',              
+        activityLog: '/admin/activity-log',  
+        settings: '/admin/settings',          
     },
 
     // ========== ADMIN CONVERSATION MANAGEMENT ==========
@@ -31,6 +35,11 @@ const endpoints = {
         getAll: '/admin/messages',
         getStats: '/admin/messages/stats',
         delete: (id) => `/admin/messages/${id}`,
+    },
+
+    // ========== ADMIN ANALYTICS ==========
+    analytics: {
+        getSystemAnalytics: '/admin/analytics',
     },
 };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, MessageSquare, Mail, Activity, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
+import { Users, Shield, UserCheck, Activity, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -24,69 +24,136 @@ import {
   Cell,
 } from 'recharts';
 
+// Import stores
+import useUserStore from '@/stores/userStore';
+import useConversationStore from '@/stores/conversationStore';
+import useMessageStore from '@/stores/messageStore';
+import useAdminStore from '@/stores/adminStore';
+
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Mock stats data
+  // Get data from stores
+  const { 
+    users = [], 
+    userStats, 
+    isLoading: userLoading,
+    getAllUsers,
+    getUserStats 
+  } = useUserStore();
+  
+  const { 
+    conversations = [], 
+    isLoading: conversationLoading,
+    getAllConversations 
+  } = useConversationStore();
+  
+  const { 
+    messageStats, 
+    isLoading: messageLoading,
+    getMessageStats 
+  } = useMessageStore();
+  
+  const { 
+    dashboardData, 
+    adminLoading,
+    getSystemAnalytics,
+    getDashboardStats
+  } = useAdminStore();
+
+  // Stats cards - ALL data comes from your existing API
   const stats = [
-    { title: 'Total Users', value: '1,426', change: '+12%', trend: 'up', icon: Users, color: 'bg-blue-500' },
-    { title: 'Total Messages', value: '8,942', change: '+18%', trend: 'up', icon: MessageSquare, color: 'bg-green-500' },
-    { title: 'Conversations', value: '2,177', change: '-5%', trend: 'down', icon: Mail, color: 'bg-purple-500' },
-    { title: 'Active Today', value: '342', change: '+8%', trend: 'up', icon: Activity, color: 'bg-orange-500' },
+    { 
+      title: 'Total Users', 
+      value: userStats?.total?.toLocaleString() || '0',
+      change: userStats?.growthPercentage || '0%',
+      trend: (userStats?.growthPercentage || '0%').startsWith('+') ? 'up' : 'down',
+      icon: Users, 
+      color: 'bg-blue-500' 
+    },
+    { 
+      title: 'Admins', 
+      value: userStats?.admins?.toLocaleString() || '0',
+      change: '0%',
+      trend: 'up',
+      icon: Shield, 
+      color: 'bg-purple-500' 
+    },
+    { 
+      title: 'Regular Users', 
+      value: userStats?.users?.toLocaleString() || '0',
+      change: '0%',
+      trend: 'up',
+      icon: UserCheck, 
+      color: 'bg-green-500' 
+    },
+    { 
+      title: 'Active Today', 
+      value: userStats?.activeToday?.toLocaleString() || '0',
+      change: userStats?.activeGrowth || '0%',
+      trend: (userStats?.activeGrowth || '0%').startsWith('+') ? 'up' : 'down',
+      icon: Activity, 
+      color: 'bg-orange-500' 
+    },
   ];
 
-  // Chart data: Messages per day
-  const messagesChartData = [
-    { day: 'Mon', messages: 145, users: 120 },
-    { day: 'Tue', messages: 189, users: 145 },
-    { day: 'Wed', messages: 210, users: 168 },
-    { day: 'Thu', messages: 198, users: 172 },
-    { day: 'Fri', messages: 256, users: 189 },
-    { day: 'Sat', messages: 187, users: 134 },
-    { day: 'Sun', messages: 134, users: 98 },
-  ];
+  // Chart data from API
+  const [messagesChartData, setMessagesChartData] = useState([]);
+  const [userDistribution, setUserDistribution] = useState([]);
+  const [topUsers, setTopUsers] = useState([]);
 
-  // Pie chart data: User distribution
-  const userDistribution = [
-    { name: 'Active Users', value: 342, color: '#10b981' },
-    { name: 'Inactive Users', value: 1084, color: '#6b7280' },
-  ];
+  // Load all dashboard data
+  const loadAllData = async () => {
+    try {
+      console.log('Loading dashboard data...');
+      
+      await Promise.allSettled([
+        getAllUsers(1, 10),
+        getUserStats(),
+        getAllConversations(1, 10),
+        getMessageStats(),
+        getDashboardStats && getDashboardStats()
+      ]);
 
-  // Top users by messages
-  const topUsers = [
-    { name: 'Admin User', messages: 245 },
-    { name: 'Alice Hi there!', messages: 189 },
-    { name: 'Sarah Johnson', messages: 156 },
-    { name: 'John Smith', messages: 134 },
-    { name: 'Mike Wilson', messages: 98 },
-  ];
-
-  // Mock users data for table
-  const users = [
-    { id: 1, name: 'Admin User', email: 'admin01@gmail.com', activity: 'Online', conversations: 24, lastActive: '2 minutes ago' },
-    { id: 2, name: 'Alice Hi there!', email: 'administer@gmail.com', activity: 'Offline', conversations: 16, lastActive: '3 hours ago' },
-    { id: 3, name: 'John Smith', email: 'john.smith@gmail.com', activity: 'Offline', conversations: 3, lastActive: '3 hours ago' },
-    { id: 4, name: 'Sarah Johnson', email: 'sarah.j@example.com', activity: 'Online', conversations: 2, lastActive: '2 minutes ago' },
-    { id: 5, name: 'Mike Wilson', email: 'mike.w@example.com', activity: 'Offline', conversations: 3, lastActive: '2 minutes ago' },
-    { id: 6, name: 'Lisa Brown', email: 'lisa.b@example.com', activity: 'Offline', conversations: 2, lastActive: '2 minutes ago' },
-    { id: 7, name: 'Tom Davis', email: 'tom.d@example.com', activity: 'Offline', conversations: 0, lastActive: '4 hours ago' },
-    { id: 8, name: 'Emma Clark', email: 'emma.c@example.com', activity: 'Offline', conversations: 1, lastActive: '2 minutes ago' },
-  ];
+      // Fetch analytics for charts
+      const analytics = await getSystemAnalytics({ days: 7 });
+      console.log('Analytics response:', analytics);
+      
+      if (analytics.success && analytics.data) {
+        console.log('Messages per day:', analytics.data.messagesPerDay);
+        console.log('User distribution:', { active: analytics.data.activeUsers, inactive: analytics.data.inactiveUsers });
+        
+        setMessagesChartData(analytics.data.messagesPerDay || []);
+        setUserDistribution([
+          { name: 'Active Users', value: analytics.data.activeUsers || 0, color: '#10b981' },
+          { name: 'Inactive Users', value: analytics.data.inactiveUsers || 0, color: '#6b7280' },
+        ]);
+        setTopUsers(analytics.data.topUsers || []);
+      } else {
+        console.warn('Analytics data not available');
+      }
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await loadAllData();
       setLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+    };
+    loadData();
   }, []);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    await loadAllData();
+    setRefreshing(false);
   };
+
+  const isLoading = loading || refreshing || userLoading || conversationLoading || messageLoading || adminLoading;
 
   const StatsSkeleton = () => (
     <div className="bg-white rounded-xl shadow-sm p-6">
@@ -118,22 +185,19 @@ const Dashboard = () => {
     </div>
   );
 
-  const showSkeletons = loading || refreshing;
-
   return (
     <div>
-      {/* Header with Refresh Button */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
-        <Button onClick={handleRefresh} disabled={showSkeletons} className="flex items-center gap-2">
+        <Button onClick={handleRefresh} disabled={isLoading} className="flex items-center gap-2">
           <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           Refresh
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - 4 Cards from your API */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {showSkeletons ? (
+        {isLoading ? (
           Array(4).fill(0).map((_, i) => <StatsSkeleton key={i} />)
         ) : (
           stats.map((stat, index) => (
@@ -164,100 +228,83 @@ const Dashboard = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Bar Chart - Messages per Day */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Messages Overview</h3>
-          {showSkeletons ? (
+          {isLoading ? (
             <ChartSkeleton />
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={messagesChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="messages" fill="#3b82f6" name="Messages" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="users" fill="#10b981" name="Active Users" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            messagesChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={messagesChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="messages" fill="#3b82f6" name="Messages" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="users" fill="#10b981" name="Active Users" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No message data available
+              </div>
+            )
           )}
         </div>
 
-        {/* Pie Chart - User Distribution */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">User Distribution</h3>
-          {showSkeletons ? (
+          {isLoading ? (
             <ChartSkeleton />
           ) : (
-            <>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={userDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {userDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex justify-center gap-6 mt-4">
-                {userDistribution.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm text-gray-600">{item.name}</span>
-                    <span className="text-sm font-semibold text-gray-800">{item.value}</span>
-                  </div>
-                ))}
+            userDistribution.length > 0 && (userDistribution[0].value > 0 || userDistribution[1].value > 0) ? (
+              <>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={userDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {userDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex justify-center gap-6 mt-4">
+                  {userDistribution.map((item) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-sm text-gray-600">{item.name}</span>
+                      <span className="text-sm font-semibold text-gray-800">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No user distribution data available
               </div>
-            </>
+            )
           )}
         </div>
       </div>
 
-      {/* Top Users by Messages */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Top Active Users</h3>
-        {showSkeletons ? (
-          <div className="space-y-3">
-            {Array(5).fill(0).map((_, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-4 w-16" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {topUsers.map((user, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-gray-400">#{index + 1}</span>
-                  <span className="font-medium text-gray-800">{user.name}</span>
-                </div>
-                <span className="text-sm text-blue-600 font-semibold">{user.messages} messages</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* User Directory Table */}
+      {/* Recent Users Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-800">User Directory</h2>
-          {!showSkeletons && (
+          <h2 className="text-lg font-semibold text-gray-800">Recent Users</h2>
+          {!isLoading && (
             <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              {users.length} users
+              {userStats?.recent?.length || 0} recent users
             </span>
           )}
         </div>
@@ -268,58 +315,49 @@ const Dashboard = () => {
                 <TableHead className="w-[80px]">User</TableHead>
                 <TableHead>Full Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Activity</TableHead>
-                <TableHead>Conversations</TableHead>
-                <TableHead>Last Active</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Created At</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {showSkeletons ? (
+              {isLoading ? (
                 Array(5).fill(0).map((_, i) => <TableRowSkeleton key={i} />)
               ) : (
-                users.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <TableCell>
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium shadow-sm">
-                        {user.name.charAt(0)}
-                      </div>
+                userStats?.recent && userStats.recent.length > 0 ? (
+                  userStats.recent.map((user) => (
+                    <TableRow key={user._id} className="hover:bg-gray-50 transition-colors">
+                      <TableCell>
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium shadow-sm">
+                          {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium text-gray-800">{user.name || 'N/A'}</TableCell>
+                      <TableCell className="text-gray-600">{user.email}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          user.role === 'admin' 
+                            ? 'bg-purple-100 text-purple-700' 
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {user.role || 'User'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-gray-500 text-sm">
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      No users found
                     </TableCell>
-                    <TableCell className="font-medium text-gray-800">{user.name}</TableCell>
-                    <TableCell className="text-gray-600">{user.email}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        user.activity === 'Online' 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {user.activity}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-gray-800">{user.conversations}</span>
-                      <span className="text-gray-400 text-xs ml-1">conversations</span>
-                    </TableCell>
-                    <TableCell className="text-gray-500 text-sm">{user.lastActive}</TableCell>
                   </TableRow>
-                ))
+                )
               )}
             </TableBody>
           </Table>
         </div>
-        
-        {!showSkeletons && (
-          <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-            <span className="text-sm text-gray-500">Showing 1-{users.length} of {users.length} users</span>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>
-                Previous
-              </button>
-              <button className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>
-                Next
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
