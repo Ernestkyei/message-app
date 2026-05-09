@@ -1,4 +1,47 @@
+can i update github with this can of infomation
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Environment Variables (SECRETS - NEVER COMMIT!)
 .env
-config/config.env
+.env.*
+*.env
+config.env
+*.config.env
+**/.env
+**/config.env
+**/config/*.env
+**/*config.env
+backend-api/config/config.env
+admin-frontend/.env
+user-frontend/.env
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+dist-ssr
+
+# Local development files
+.DS_Store
+*.local
+
+# Editor directories and files
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
