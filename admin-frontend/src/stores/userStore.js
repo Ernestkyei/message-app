@@ -41,10 +41,8 @@ const useUserStore = create((set, get) => ({
         try {
             const response = await api.get(endpoints.admin.getUserStats);
             
-            // Your API returns: { success: true, data: { total, admins, users, recent } }
             const statsData = response.data?.data || response.data;
             
-            // Format stats for dashboard - all from API, no hardcoded values
             const formattedStats = {
                 total: statsData.total || 0,
                 admins: statsData.admins || 0,
@@ -68,8 +66,9 @@ const useUserStore = create((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             const response = await api.get(endpoints.admin.getUserById(id));
-            set({ selectedUser: response.data, isLoading: false });
-            return { success: true, data: response.data };
+            const userData = response.data?.data || response.data;
+            set({ selectedUser: userData, isLoading: false });
+            return { success: true, data: userData };
         } catch (error) {
             console.error('Get User By ID Error:', error);
             set({ error: error.response?.data?.message, isLoading: false });
@@ -77,35 +76,56 @@ const useUserStore = create((set, get) => ({
         }
     },
 
+    // FIXED: Changed from PUT to PATCH to match your backend
     updateUser: async (id, userData) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await api.put(endpoints.admin.updateUser(id), userData);
-            const { users } = get();
-            const updatedUsers = users.map(user => 
-                user._id === id ? response.data : user
-            );
-            set({ users: updatedUsers, selectedUser: response.data, isLoading: false });
-            return { success: true, data: response.data };
+            // Changed from api.put to api.patch
+            const response = await api.patch(endpoints.admin.updateUser(id), userData);
+            
+            console.log('Update response:', response.data);
+            
+            if (response.data.success) {
+                const { users } = get();
+                const updatedUsers = users.map(user => 
+                    (user._id === id || user.id === id) 
+                        ? { ...user, ...userData, ...(response.data.data || response.data.user) }
+                        : user
+                );
+                set({ 
+                    users: updatedUsers, 
+                    selectedUser: response.data.data || response.data.user,
+                    isLoading: false 
+                });
+                return { success: true, data: response.data.data || response.data.user };
+            } else {
+                throw new Error(response.data.message || 'Update failed');
+            }
         } catch (error) {
             console.error('Update User Error:', error);
-            set({ error: error.response?.data?.message, isLoading: false });
-            return { success: false, error: error.response?.data?.message };
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to update user';
+            set({ error: errorMsg, isLoading: false });
+            return { success: false, error: errorMsg };
         }
     },
 
     deleteUser: async (id) => {
         set({ isLoading: true, error: null });
         try {
-            await api.delete(endpoints.admin.deleteUser(id));
-            const { users } = get();
-            const filteredUsers = users.filter(user => user._id !== id);
-            set({ users: filteredUsers, isLoading: false });
-            return { success: true };
+            const response = await api.delete(endpoints.admin.deleteUser(id));
+            if (response.data.success) {
+                const { users } = get();
+                const filteredUsers = users.filter(user => user._id !== id && user.id !== id);
+                set({ users: filteredUsers, isLoading: false });
+                return { success: true };
+            } else {
+                throw new Error(response.data.message || 'Delete failed');
+            }
         } catch (error) {
             console.error('Delete User Error:', error);
-            set({ error: error.response?.data?.message, isLoading: false });
-            return { success: false, error: error.response?.data?.message };
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to delete user';
+            set({ error: errorMsg, isLoading: false });
+            return { success: false, error: errorMsg };
         }
     },
 

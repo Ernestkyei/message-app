@@ -11,6 +11,9 @@ const Message = require('./models/messageModel');
 const Conversation = require('./models/conversationModel');
 const User = require('./models/userModel');
 
+// Import adminService to set online users
+const adminService = require('./services/adminService');
+
 // ==================== INITIALIZATION ====================
 connectDb();
 
@@ -29,6 +32,10 @@ app.set('io', io);
 
 // ==================== STORAGE ====================
 const onlineUsers = new Map();
+
+// ==================== SET ONLINE USERS IN ADMIN SERVICE ====================
+// This makes onlineUsers available to adminService for isOnline field
+adminService.setOnlineUsers(onlineUsers);
 
 // ==================== AUTHENTICATION MIDDLEWARE ====================
 io.use((socket, next) => {
@@ -50,7 +57,7 @@ io.on('connection', (socket) => {
 
     onlineUsers.set(userId, socket.id);
     socket.join(`user_${userId}`);
-    console.log(`✅ User connected: ${userId} (${onlineUsers.size} online)`);
+    console.log(`User connected: ${userId} (${onlineUsers.size} online)`);
 
     socket.emit('onlineUsersList', { onlineUsers: Array.from(onlineUsers.keys()) });
     socket.broadcast.emit('userConnected', { userId, onlineUsers: Array.from(onlineUsers.keys()) });
@@ -62,7 +69,7 @@ io.on('connection', (socket) => {
     socket.on('sendMessage', async (data) => {
         try {
             const { conversationId, content } = data;
-            console.log(`📨 Message from ${userId} to conversation ${conversationId}`);
+            console.log(`Message from ${userId} to conversation ${conversationId}`);
 
             const message = await Message.create({
                 conversation: conversationId,
@@ -93,7 +100,7 @@ io.on('connection', (socket) => {
 
             console.log(`✅ Message sent to ${participants.length} participants`);
         } catch (error) {
-            console.error('❌ Error sending message:', error);
+            console.error('Error sending message:', error);
             socket.emit('messageError', { success: false, error: error.message });
         }
     });
@@ -107,13 +114,13 @@ io.on('connection', (socket) => {
             );
             console.log(`📖 ${userId} read messages in ${conversationId}`);
         } catch (error) {
-            console.error('❌ Error marking messages as read:', error);
+            console.error('Error marking messages as read:', error);
         }
     });
 
     socket.on('disconnect', () => {
         onlineUsers.delete(userId);
-        console.log(`❌ User disconnected: ${userId} (${onlineUsers.size} online)`);
+        console.log(`User disconnected: ${userId} (${onlineUsers.size} online)`);
         socket.broadcast.emit('userDisconnected', { userId, onlineUsers: Array.from(onlineUsers.keys()) });
     });
 });

@@ -3,6 +3,14 @@ const Conversation = require('../models/conversationModel');
 const Message = require('../models/messageModel');
 const ApiError = require('../utils/apiError');
 
+// Store online users (will be set from server.js)
+let onlineUsersMap = new Map();
+
+// Function to set online users from server
+exports.setOnlineUsers = (onlineUsers) => {
+    onlineUsersMap = onlineUsers;
+};
+
 // ========== USER MANAGEMENT ==========
 
 // Get all users with pagination
@@ -28,9 +36,16 @@ exports.getAllUsers = async (queryParams) => {
         .limit(limit)
         .sort(queryParams.sort || '-createdAt');
     
+    // Add isOnline field to each user
+    const usersWithStatus = users.map(user => {
+        const userObj = user.toObject();
+        userObj.isOnline = onlineUsersMap.has(user._id.toString());
+        return userObj;
+    });
+    
     const total = await User.countDocuments(filter);    
     return {
-        users,
+        users: usersWithStatus,
         pagination: {
             page,
             limit,
@@ -46,12 +61,14 @@ exports.getUserById = async (userId) => {
     if (!user) {
         throw new ApiError(404, 'User not found');
     }
-    return user;
+    const userObj = user.toObject();
+    userObj.isOnline = onlineUsersMap.has(user._id.toString());
+    return userObj;
 };
 
 // Update user (admin)
 exports.updateUser = async (userId, data) => {
-    const allowedFields = ['name', 'email', 'role'];
+    const allowedFields = ['name', 'email', 'role', 'status'];
     const user = await User.findById(userId);    
     if (!user) {
         throw new ApiError(404, 'User not found');
@@ -64,7 +81,9 @@ exports.updateUser = async (userId, data) => {
 
     await user.save();
     user.password = undefined;
-    return user;
+    const userObj = user.toObject();
+    userObj.isOnline = onlineUsersMap.has(user._id.toString());
+    return userObj;
 };
 
 // ========== ANALYTICS FOR CHARTS ==========
@@ -188,18 +207,24 @@ exports.getUserStats = async () => {
         lastActive: { $gte: last24Hours }
     });
     
-    // Recent users (last 5)
+    // Recent users (last 5) with online status
     const recent = await User.find()
         .sort('-createdAt')
         .limit(5)
         .select('name email createdAt role');
+    
+    const recentWithStatus = recent.map(user => {
+        const userObj = user.toObject();
+        userObj.isOnline = onlineUsersMap.has(user._id.toString());
+        return userObj;
+    });
     
     return {
         total,
         admins,
         users,
         activeToday,
-        recent
+        recent: recentWithStatus
     };
 };
 
@@ -221,6 +246,7 @@ exports.getUserConversationStats = async () => {
             name: user.name,
             email: user.email,
             role: user.role,
+            isOnline: onlineUsersMap.has(user._id.toString()),
             conversationCount,
             lastActive: lastMessage?.createdAt || user.createdAt,
         };

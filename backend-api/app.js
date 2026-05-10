@@ -20,7 +20,7 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // Added PATCH here
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());

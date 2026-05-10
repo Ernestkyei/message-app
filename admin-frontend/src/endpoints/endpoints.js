@@ -11,10 +11,10 @@ const endpoints = {
     // ========== ADMIN USER MANAGEMENT ==========
     admin: {
         getAllUsers: '/admin/users',
-        getUserStats: '/admin/user/stats',
-        getUserById: (id) => `/admin/user/${id}`,
-        updateUser: (id) => `/admin/user/${id}`,
-        deleteUser: (id) => `/admin/user/${id}`,
+        getUserStats: '/admin/user/stats',  
+        getUserById: (id) => `/admin/user/${id}`,  
+        updateUser: (id) => `/admin/user/${id}`,   
+        deleteUser: (id) => `/admin/user/${id}`,   
         getUserConversationStats: '/admin/users/conversation-stats',
         broadcast: '/admin/broadcast',
         dashboard: '/admin/dashboard',        
