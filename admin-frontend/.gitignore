@@ -10,3 +10,17 @@ config.env
 backend-api/config/config.env
 admin-frontend/.env
 user-frontend/.env
+node_modules/
+dist/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+node_modules/.vite/
+node_modules/.vite/
