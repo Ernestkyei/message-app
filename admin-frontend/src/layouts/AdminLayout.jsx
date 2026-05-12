@@ -78,7 +78,6 @@ const AdminLayout = () => {
     { path: '/admin/users', icon: Users, label: 'User Management' },
     { path: '/admin/send-messages', icon: Send, label: 'Send Message' },
     { path: '/admin/messages', icon: MessageSquare, label: 'Messaging Logs' },
-    { path: '/admin/notifications', icon: Bell, label: 'Notifications' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
