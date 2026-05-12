@@ -3,7 +3,17 @@ const http = require('http');
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 
-dotenv.config({ path: './config/config.env' });
+// ==================== ENVIRONMENT CONFIGURATION ====================
+// Load environment variables based on NODE_ENV
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) {
+  dotenv.config({ path: './config/config.env.production' });
+  console.log('🔐 Running in PRODUCTION mode');
+} else {
+  dotenv.config({ path: './config/config.env' });
+  console.log('💻 Running in DEVELOPMENT mode');
+}
 
 const app = require('./app');
 const connectDb = require('./config/db');
@@ -138,5 +148,6 @@ app.get('/api/test', (req, res) => {
 server.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
     console.log(`📡 WebSocket ready at ws://localhost:${PORT}`);
-    console.log(`✅ CORS enabled for: ${process.env.ALLOWED_ORIGINS}\n`);
+    console.log(`✅ CORS enabled for: ${process.env.ALLOWED_ORIGINS}`);
+    console.log(`🗄️  Database: ${isProduction ? 'MongoDB Atlas (PRODUCTION)' : 'Local MongoDB (DEVELOPMENT)'}\n`);
 });
