@@ -1,3 +1,4 @@
+// admin-frontend/src/stores/authStore.js
 import { create } from 'zustand';
 import api from '../service/api';
 import endpoints from '../endpoints/endpoints';
@@ -30,6 +31,11 @@ const useAuthStore = create((set, get) => ({
         set({ token: null, user: null, isLoading: false });
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+    },
+
+    // Add this getToken method to easily access token
+    getToken: () => {
+        return get().token || localStorage.getItem('token');
     },
 }));
 

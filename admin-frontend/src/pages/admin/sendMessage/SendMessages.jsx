@@ -1,37 +1,41 @@
 import { useState, useEffect } from 'react';
-import { Send, User, Mail, MessageSquare, RefreshCw, Users as UsersIcon } from 'lucide-react';
+import { Send, Search, MessageSquare, RefreshCw, Users as UsersIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import toast from 'react-hot-toast';
+import useUserStore from '@/stores/userStore';
+import useAdminStore from '@/stores/adminStore';
 
 const SendMessage = () => {
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [message, setMessage] = useState('');
+  const [subject, setSubject] = useState('');
   const [search, setSearch] = useState('');
+  
+  // Get users from store
+  const { users = [], getAllUsers, isLoading } = useUserStore();
+  const { sendDirectMessage } = useAdminStore();
 
   useEffect(() => {
-    // Mock fetching users
-    const timer = setTimeout(() => {
-      setUsers([
-        { id: '1', name: 'Alice Johnson', email: 'alice@example.com', avatar: 'A' },
-        { id: '2', name: 'Bob Smith', email: 'bob@example.com', avatar: 'B' },
-        { id: '3', name: 'Carol Davis', email: 'carol@example.com', avatar: 'C' },
-        { id: '4', name: 'David Wilson', email: 'david@example.com', avatar: 'D' },
-        { id: '5', name: 'Emma Brown', email: 'emma@example.com', avatar: 'E' },
-      ]);
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    loadUsers();
   }, []);
+
+  const loadUsers = async () => {
+    await getAllUsers(1, 100);
+  };
+
+  // Get initials for avatar
+  const getInitials = (name, email) => {
+    if (name) return name.charAt(0).toUpperCase();
+    if (email) return email.charAt(0).toUpperCase();
+    return 'U';
+  };
 
   const handleSend = async () => {
     if (!selectedUser) {
@@ -45,18 +49,33 @@ const SendMessage = () => {
 
     setSending(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      toast.success(`Message sent to ${selectedUser.name}`);
-      setMessage('');
-      setSelectedUser(null);
+    try {
+      const result = await sendDirectMessage(
+        selectedUser._id || selectedUser.id,
+        message,
+        subject || 'Message from Admin'
+      );
+      
+      // REMOVED duplicate toast - the store already shows success/error toast
+      if (result?.success) {
+        setMessage('');
+        setSubject('');
+        setSelectedUser(null);
+      }
+    } catch (error) {
+      console.error('Send message error:', error);
+      // Only show error if the store didn't already show one
+      if (!error.response?.data?.message) {
+        toast.error('Failed to send message');
+      }
+    } finally {
       setSending(false);
-    }, 1500);
+    }
   };
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(search.toLowerCase()) ||
-    user.email.toLowerCase().includes(search.toLowerCase())
+    user.name?.toLowerCase().includes(search.toLowerCase()) ||
+    user.email?.toLowerCase().includes(search.toLowerCase())
   );
 
   const UserCardSkeleton = () => (
@@ -70,12 +89,14 @@ const SendMessage = () => {
     </div>
   );
 
+  const isLoadingState = isLoading;
+
   return (
-    <div>
+    <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Send Message</h1>
-        <p className="text-gray-500 text-sm mt-1">Send a message to any user on the platform</p>
+        <h1 className="text-2xl font-bold text-gray-900">Send Message</h1>
+        <p className="text-gray-500 text-sm mt-1">Send a personal message to any user on the platform</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -91,7 +112,7 @@ const SendMessage = () => {
           <CardContent>
             {/* Search */}
             <div className="relative mb-4">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <Input
                 placeholder="Search by name or email..."
                 value={search}
@@ -102,7 +123,7 @@ const SendMessage = () => {
 
             {/* Users List */}
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {loading ? (
+              {isLoadingState ? (
                 Array(5).fill(0).map((_, i) => <UserCardSkeleton key={i} />)
               ) : filteredUsers.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -111,24 +132,27 @@ const SendMessage = () => {
               ) : (
                 filteredUsers.map((user) => (
                   <div
-                    key={user.id}
+                    key={user._id || user.id}
                     onClick={() => setSelectedUser(user)}
                     className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all hover:bg-gray-50 ${
-                      selectedUser?.id === user.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      selectedUser?._id === user._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
                     }`}
                   >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-blue-100 text-blue-700">
-                        {user.avatar}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium shadow-sm">
+                      {getInitials(user.name, user.email)}
+                    </div>
                     <div className="flex-1">
-                      <p className="font-medium text-gray-800">{user.name}</p>
+                      <p className="font-medium text-gray-900">{user.name || 'N/A'}</p>
                       <p className="text-sm text-gray-500">{user.email}</p>
                     </div>
-                    {selectedUser?.id === user.id && (
-                      <Badge className="bg-blue-100 text-blue-700">Selected</Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {user.isOnline && (
+                        <Badge className="bg-green-100 text-green-700">Online</Badge>
+                      )}
+                      {selectedUser?._id === user._id && (
+                        <Badge className="bg-blue-100 text-blue-700">Selected</Badge>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
@@ -152,13 +176,11 @@ const SendMessage = () => {
           <CardContent className="space-y-4">
             {selectedUser && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-blue-100 text-blue-700 text-lg">
-                    {selectedUser.avatar}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg font-medium shadow-sm">
+                  {getInitials(selectedUser.name, selectedUser.email)}
+                </div>
                 <div>
-                  <p className="font-semibold text-gray-800">{selectedUser.name}</p>
+                  <p className="font-semibold text-gray-900">{selectedUser.name}</p>
                   <p className="text-sm text-gray-500">{selectedUser.email}</p>
                 </div>
                 <Button
@@ -172,9 +194,22 @@ const SendMessage = () => {
               </div>
             )}
 
+            {/* Subject Field */}
             <div className="space-y-2">
-              <Label>Message</Label>
+              <Label htmlFor="subject">Subject (Optional)</Label>
+              <Input
+                id="subject"
+                placeholder="Enter subject..."
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                disabled={!selectedUser}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="message">Message</Label>
               <Textarea
+                id="message"
                 placeholder="Type your message here..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -182,6 +217,11 @@ const SendMessage = () => {
                 disabled={!selectedUser}
                 className="resize-none"
               />
+              {message && (
+                <p className="text-xs text-gray-500">
+                  {message.length} characters
+                </p>
+              )}
             </div>
 
             <Button

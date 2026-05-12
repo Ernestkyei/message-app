@@ -27,8 +27,11 @@ class WebSocketService {
         }
 
         this.socket = io('http://localhost:4000', {
-            query: { token },
-            transports: ['websocket'],
+            query: { 
+                token: token,
+                userId: this.currentUserId  // IMPORTANT: Send userId in query
+            },
+            transports: ['websocket', 'polling'],
             withCredentials: true,
             reconnection: true,
             reconnectionAttempts: 5,
@@ -38,6 +41,13 @@ class WebSocketService {
         this.socket.on('connect', () => {
             console.log('✅ WebSocket connected');
             this.isConnected = true;
+            
+            // IMPORTANT: Join room with user ID
+            if (this.currentUserId) {
+                this.socket.emit('join', { userId: this.currentUserId });
+                console.log('🔵 Joined room with user ID:', this.currentUserId);
+            }
+            
             this.emit('connect');
             this.emit('statusChange', { online: true });
             
@@ -50,6 +60,25 @@ class WebSocketService {
             console.log('📨📨📨 NEW MESSAGE RECEIVED IN WEBSOCKET SERVICE:', data);
             this.emit('newMessage', data);
         });
+
+        // ========== ADD ADMIN DIRECT MESSAGE LISTENER ==========
+        this.socket.on('adminDirectMessage', (data) => {
+            console.log('🎉🎉🎉 ADMIN MESSAGE RECEIVED IN WEBSOCKET SERVICE! 🎉🎉🎉');
+            console.log('📨 Full admin message data:', data);
+            console.log('📨 Message:', data.message);
+            console.log('📨 Subject:', data.subject);
+            console.log('📨 From:', data.fromName);
+            this.emit('adminDirectMessage', data);
+        });
+        
+        // Also listen for newMessage with admin type
+        this.socket.on('newMessage', (data) => {
+            if (data.type === 'admin') {
+                console.log('📨 Admin message received via newMessage event:', data);
+                this.emit('adminDirectMessage', data);
+            }
+        });
+        // ========== END ADMIN DIRECT MESSAGE LISTENER ==========
 
         this.socket.on('messageSent', (data) => {
             console.log('✅ Message sent confirmation:', data);

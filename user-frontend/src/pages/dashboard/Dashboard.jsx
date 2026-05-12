@@ -13,7 +13,8 @@ import {
   Trash2,
   AlertTriangle,
   EyeOff,
-  Bell
+  Bell,
+  Reply
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -52,33 +53,73 @@ const getInitials = (name) => {
     .slice(0, 2);
 };
 
-// Professional sound notification
+// ==================== SOUND NOTIFICATION ====================
 let audioContext = null;
+let notificationSoundBuffer = null;
 
-const playNotificationSound = () => {
+// Create a simple beep sound using Web Audio API
+const createBeepSound = () => {
   try {
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
     
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    const duration = 0.3;
+    const frequency = 880;
+    const sampleRate = audioContext.sampleRate;
+    const frames = duration * sampleRate;
+    const arrayBuffer = audioContext.createBuffer(1, frames, sampleRate);
+    const channelData = arrayBuffer.getChannelData(0);
     
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    for (let i = 0; i < frames; i++) {
+      const t = i / sampleRate;
+      // Two-tone notification sound
+      const freq1 = 880;
+      const freq2 = 660;
+      const freq = t < 0.15 ? freq1 : freq2;
+      channelData[i] = Math.sin(freq * 2 * Math.PI * t) * 0.3;
+    }
     
-    oscillator.frequency.value = 880;
-    gainNode.gain.value = 0.2;
-    
-    oscillator.start();
-    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3);
-    oscillator.stop(audioContext.currentTime + 0.3);
+    notificationSoundBuffer = arrayBuffer;
+  } catch (error) {
+    console.warn('Could not create beep sound:', error);
+  }
+};
+
+// Play notification sound for admin messages
+const playNotificationSound = () => {
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      createBeepSound();
+    }
     
     if (audioContext.state === 'suspended') {
       audioContext.resume();
     }
+    
+    if (notificationSoundBuffer) {
+      const source = audioContext.createBufferSource();
+      source.buffer = notificationSoundBuffer;
+      source.connect(audioContext.destination);
+      source.start();
+    } else {
+      // Fallback: create oscillator
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 880;
+      gainNode.gain.value = 0.2;
+      
+      oscillator.start();
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    }
   } catch (error) {
-    // Silent fail
+    console.warn('Could not play sound:', error);
   }
 };
 
@@ -108,6 +149,9 @@ export default function Dashboard() {
   const popupTimeoutRef = useRef(null);
   const audioResumedRef = useRef(false);
   const hasLoadedSavedCounts = useRef(false);
+  const lastToastTime = useRef(0);
+  const processedAdminMessages = useRef(new Set());
+  const messagesEndRef = useRef(null);
   
   // State
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -121,8 +165,9 @@ export default function Dashboard() {
   const [allUsers, setAllUsers] = useState([]);
   const [onlineUsersMap, setOnlineUsersMap] = useState({});
   const [isOnlineLoading, setIsOnlineLoading] = useState(true);
+  const [replyingTo, setReplyingTo] = useState(null);
   
-  // 🔥 GREEN BADGE: Track unread messages per conversation
+  // Track unread messages per conversation
   const [unreadCounts, setUnreadCounts] = useState({});
   
   // Track processed message IDs to prevent duplicates
@@ -131,6 +176,35 @@ export default function Dashboard() {
   // Delete Modal State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
+  
+  // Initialize sound on first user interaction
+  useEffect(() => {
+    const initAudio = () => {
+      if (!audioContext && soundEnabled) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        createBeepSound();
+        audioResumedRef.current = true;
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    };
+    
+    // Initialize on first click anywhere
+    const handleFirstInteraction = () => {
+      initAudio();
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keypress', handleFirstInteraction);
+    };
+    
+    document.addEventListener('click', handleFirstInteraction);
+    document.addEventListener('keypress', handleFirstInteraction);
+    
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keypress', handleFirstInteraction);
+    };
+  }, [soundEnabled]);
   
   // Stores
   const { 
@@ -157,6 +231,13 @@ export default function Dashboard() {
     clearActiveConversation
   } = useConversationStore();
 
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
   // Helper function to check if a user is online
   const isUserOnlineUpdated = (userId) => {
     return onlineUsersMap[userId] === true;
@@ -167,7 +248,6 @@ export default function Dashboard() {
 
   // ==================== PERSIST UNREAD COUNTS ====================
   
-  // Save unread counts to localStorage
   const saveUnreadCounts = (counts) => {
     try {
       const userId = currentUser?._id || currentUser?.id;
@@ -180,7 +260,6 @@ export default function Dashboard() {
     }
   };
   
-  // Load unread counts from localStorage
   const loadUnreadCounts = () => {
     try {
       const userId = currentUser?._id || currentUser?.id;
@@ -198,14 +277,12 @@ export default function Dashboard() {
     return {};
   };
   
-  // Save unread counts whenever they change
   useEffect(() => {
     if (currentUser?._id || currentUser?.id) {
       saveUnreadCounts(unreadCounts);
     }
   }, [unreadCounts, currentUser]);
   
-  // Load saved unread counts AFTER conversations are loaded
   useEffect(() => {
     if (conversations.length > 0 && !hasLoadedSavedCounts.current && currentUser?._id) {
       const savedCounts = loadUnreadCounts();
@@ -234,11 +311,19 @@ export default function Dashboard() {
     websocketService.connect(token);
     
     websocketService.on('connect', () => {
-      console.log('✅ WebSocket connected');
+      console.log('✅ WebSocket connected, socket ID:', websocketService.socket?.id);
       setIsCurrentUserOnline(true);
       setIsOnlineLoading(true);
+      
+      const userId = currentUser?._id || currentUser?.id;
+      if (userId && websocketService.socket) {
+        websocketService.socket.emit('join', { userId });
+        console.log('🔵 Joined room with user ID:', userId);
+      }
+      
       setTimeout(() => {
         if (websocketService.socket?.connected) {
+          console.log('🔵 Socket is ready to send/receive messages');
           websocketService.socket.emit('getOnlineUsers');
         }
       }, 500);
@@ -310,6 +395,97 @@ export default function Dashboard() {
       }
     });
     
+    // ========== ADMIN DIRECT MESSAGE LISTENER WITH SOUND ==========
+    websocketService.on('adminDirectMessage', (data) => {
+      console.log('🎉 ADMIN MESSAGE RECEIVED!', data);
+      
+      const messageUniqueId = `${data.message}_${data.timestamp}_${data.from}`;
+      
+      if (processedAdminMessages.current.has(messageUniqueId)) {
+        console.log('⚠️ Duplicate admin message ignored:', messageUniqueId);
+        return;
+      }
+      
+      processedAdminMessages.current.add(messageUniqueId);
+      
+      setTimeout(() => {
+        processedAdminMessages.current.delete(messageUniqueId);
+      }, 10000);
+      
+      // Show toast notification
+      const now = Date.now();
+      if (now - lastToastTime.current > 3000) {
+        lastToastTime.current = now;
+        toast.success(`📨 New message from Admin`, {
+          duration: 5000,
+          icon: '📨'
+        });
+      }
+      
+      // PLAY SOUND for admin message (if enabled)
+      if (soundEnabled) {
+        playNotificationSound();
+      }
+      
+      // Create admin user object
+      const adminUser = {
+        _id: 'admin_special',
+        id: 'admin_special',
+        name: 'Admin',
+        email: 'admin@system.com',
+        role: 'admin'
+      };
+      
+      // Create message object with deterministic ID
+      const adminMessageObj = {
+        _id: `admin_${Date.now()}_${Math.random()}`,
+        content: data.message,
+        subject: data.subject || 'Message from Admin',
+        sender: adminUser,
+        senderId: 'admin_special',
+        recipient: currentUser?._id,
+        createdAt: data.timestamp || new Date().toISOString(),
+        read: false,
+        isAdminMessage: true
+      };
+      
+      // Save to localStorage for persistence
+      const existingMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+      let savedMessages = existingMessages ? JSON.parse(existingMessages) : [];
+      
+      const messageExists = savedMessages.some(msg => 
+        msg.content === data.message && 
+        new Date(msg.createdAt).getTime() === new Date(data.timestamp).getTime()
+      );
+      
+      if (!messageExists) {
+        savedMessages.push(adminMessageObj);
+        localStorage.setItem(`chat_admin_${currentUser?._id}`, JSON.stringify(savedMessages.slice(-100)));
+      } else {
+        console.log('⚠️ Admin message already in localStorage, skipping save');
+      }
+      
+      // Add to messages if currently viewing admin chat
+      if (selectedUser?._id === 'admin_special' || selectedUser?.role === 'admin') {
+        const messageInCurrent = messages.some(msg => 
+          msg.content === data.message && 
+          new Date(msg.createdAt).getTime() === new Date(data.timestamp).getTime()
+        );
+        if (!messageInCurrent) {
+          addMessage(adminMessageObj);
+        }
+      } else {
+        // Not viewing admin chat, so increment unread count for admin
+        setUnreadCounts(prev => {
+          const currentCount = prev['admin_special_conversation'] || 0;
+          return {
+            ...prev,
+            ['admin_special_conversation']: currentCount + 1
+          };
+        });
+      }
+    });
+    
     websocketService.on('onlineUsersList', (data) => {
       console.log('📋 Online users list:', data);
       const newMap = {};
@@ -345,7 +521,6 @@ export default function Dashboard() {
 
   // ==================== DATA FETCHING ====================
 
-  // 🔥 FIXED: Fetch users for chat (exclude current user)
   const fetchUsers = async () => {
     try {
       const response = await api.get(endpoints.user.getAllUsers);
@@ -370,7 +545,6 @@ export default function Dashboard() {
     }
   };
 
-  // 🔥 FIXED: Fetch ALL users including admins
   const fetchAllUsers = async () => {
     try {
       const response = await api.get(endpoints.user.getAllUsers);
@@ -416,6 +590,33 @@ export default function Dashboard() {
     setSelectedUser(user);
     setLoading(true);
     
+    if (user._id === 'admin_special' || user.id === 'admin_special' || user.role === 'admin') {
+      console.log('📁 Loading admin messages from localStorage');
+      
+      const storedMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+      let adminMsgList = storedMessages ? JSON.parse(storedMessages) : [];
+      
+      adminMsgList = adminMsgList.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      
+      console.log(`📨 Found ${adminMsgList.length} admin messages`);
+      
+      clearMessages();
+      adminMsgList.forEach(msg => {
+        addMessage(msg);
+      });
+      
+      setUnreadCounts(prev => ({
+        ...prev,
+        ['admin_special_conversation']: 0
+      }));
+      
+      setActiveConversation({ _id: 'admin_special_conversation', isAdminConversation: true });
+      setReplyingTo(null);
+      setLoading(false);
+      setActiveTab('chats');
+      return;
+    }
+    
     try {
       const userId = user._id || user.id;
       
@@ -452,9 +653,54 @@ export default function Dashboard() {
     }
   };
 
+  const handleSendReplyToAdmin = async () => {
+    if (!inputMessage.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+
+    const replyContent = inputMessage;
+    setInputMessage('');
+    setReplyingTo(null);
+
+    const replyMessageObj = {
+      _id: `reply_${Date.now()}_${Math.random()}`,
+      content: replyContent,
+      subject: `Re: ${replyingTo?.subject || 'Message from Admin'}`,
+      sender: { 
+        _id: currentUser?._id, 
+        name: currentUser?.name,
+        role: 'user'
+      },
+      senderId: currentUser?._id,
+      recipient: 'admin_special',
+      createdAt: new Date().toISOString(),
+      read: true,
+      isReplyToAdmin: true
+    };
+
+    const existingMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+    let savedMessages = existingMessages ? JSON.parse(existingMessages) : [];
+    savedMessages.push(replyMessageObj);
+    localStorage.setItem(`chat_admin_${currentUser?._id}`, JSON.stringify(savedMessages.slice(-100)));
+
+    addMessage(replyMessageObj);
+    toast.success('Reply sent to Admin', { icon: '✉️', duration: 2000 });
+  };
+
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim()) {
+      console.log('🔴 Empty message, not sending');
+      return;
+    }
+    
+    if (replyingTo) {
+      await handleSendReplyToAdmin();
+      return;
+    }
+    
     if (!activeConversation || !activeConversation._id) {
+      console.log('🔴 No active conversation selected');
       toast.error('No conversation selected');
       return;
     }
@@ -468,47 +714,67 @@ export default function Dashboard() {
           conversationId: activeConversation._id,
           content: messageContent
         });
+        console.log('✅ Message emitted via Socket.IO');
+        
+        const tempMessage = {
+          _id: Date.now().toString(),
+          content: messageContent,
+          sender: { _id: currentUser?._id, name: currentUser?.name },
+          senderId: currentUser?._id,
+          createdAt: new Date().toISOString(),
+          read: false
+        };
+        addMessage(tempMessage);
+        
         toast.success('✓ Sent', { duration: 1000, icon: '✅' });
       } else {
+        console.error('❌ Socket not connected! Falling back to REST API');
         await sendMessage(activeConversation._id, messageContent);
-        toast.success('✓ Sent', { duration: 1000, icon: '✅' });
+        toast.success('✓ Sent via API', { duration: 1000, icon: '✅' });
       }
     } catch (error) {
+      console.error('❌ Send message error:', error);
       toast.error(error.response?.data?.message || 'Failed to send message');
       setInputMessage(messageContent);
     }
   };
 
+  const handleDeleteAdminMessage = (messageId) => {
+    setMessageToDelete(messageId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteAdminMessage = async () => {
+    if (!messageToDelete) return;
+    
+    const storedMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+    if (storedMessages) {
+      let messages = JSON.parse(storedMessages);
+      messages = messages.filter(msg => msg._id !== messageToDelete);
+      localStorage.setItem(`chat_admin_${currentUser?._id}`, JSON.stringify(messages));
+    }
+    
+    if (selectedUser?._id === 'admin_special' || selectedUser?.role === 'admin') {
+      const updatedMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+      let msgList = updatedMessages ? JSON.parse(updatedMessages) : [];
+      msgList = msgList.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      clearMessages();
+      msgList.forEach(msg => {
+        addMessage(msg);
+      });
+    }
+    
+    toast.success('Message deleted', { duration: 2000 });
+    setDeleteDialogOpen(false);
+    setMessageToDelete(null);
+  };
+
   const handleHideMessage = async (messageId) => {
     try {
       await hideMessage(messageId);
-      toast.success('Message hidden');
+      toast.success('Message hidden', { duration: 2000 });
     } catch (error) {
       toast.error('Failed to hide message');
-    }
-  };
-
-  const handleDeleteMessage = async (messageId) => {
-    if (!messageId) {
-      toast.error('Cannot delete message');
-      setDeleteDialogOpen(false);
-      setMessageToDelete(null);
-      return;
-    }
-    
-    try {
-      await deleteMessage(messageId);
-      toast.success('Message deleted');
-      setDeleteDialogOpen(false);
-      setMessageToDelete(null);
-      
-      if (activeConversation?._id) {
-        await fetchMessages(activeConversation._id);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to delete message');
-      setDeleteDialogOpen(false);
-      setMessageToDelete(null);
     }
   };
 
@@ -520,7 +786,7 @@ export default function Dashboard() {
   };
 
   const handleUserInteraction = () => {
-    if (!audioResumedRef.current && audioContext) {
+    if (!audioResumedRef.current && audioContext && soundEnabled) {
       audioContext.resume();
       audioResumedRef.current = true;
     }
@@ -529,12 +795,44 @@ export default function Dashboard() {
   // ==================== HELPERS ====================
 
   const getOtherUser = (conversation) => {
+    if (conversation._id === 'admin_special_conversation') {
+      return { _id: 'admin_special', name: 'Admin', role: 'admin' };
+    }
     return conversation.participants?.find(p => 
       (p._id || p.id) !== (currentUser?._id || currentUser?.id)
     );
   };
 
-  const filteredConversations = conversations.filter(conv => {
+  const getAllConversations = () => {
+    const allConvs = [...conversations];
+    
+    const storedMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+    const hasAdminMessages = storedMessages ? JSON.parse(storedMessages).length > 0 : false;
+    const hasAdminInConv = allConvs.some(conv => conv._id === 'admin_special_conversation');
+    
+    if (hasAdminMessages && !hasAdminInConv && currentUser?._id) {
+      const adminConv = {
+        _id: 'admin_special_conversation',
+        participants: [
+          { _id: currentUser._id, name: currentUser.name },
+          { _id: 'admin_special', name: 'Admin', role: 'admin' }
+        ],
+        lastMessage: {
+          content: 'Admin messages',
+          createdAt: new Date().toISOString()
+        },
+        updatedAt: new Date().toISOString(),
+        isAdminConversation: true
+      };
+      allConvs.unshift(adminConv);
+    }
+    
+    return allConvs;
+  };
+
+  const allConversations = getAllConversations();
+  
+  const searchedFilteredConversations = allConversations.filter(conv => {
     const otherUser = getOtherUser(conv);
     return otherUser?.name?.toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -546,11 +844,28 @@ export default function Dashboard() {
   // ==================== EFFECTS ====================
 
   useEffect(() => {
+    const handleStorageChange = () => {
+      if (selectedUser?._id === 'admin_special') {
+        const storedMessages = localStorage.getItem(`chat_admin_${currentUser?._id}`);
+        let msgList = storedMessages ? JSON.parse(storedMessages) : [];
+        msgList = msgList.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        clearMessages();
+        msgList.forEach(msg => {
+          addMessage(msg);
+        });
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [selectedUser, currentUser]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       if (websocketService.socket?.connected) {
         websocketService.socket.emit('getOnlineUsers');
       }
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -631,7 +946,6 @@ export default function Dashboard() {
       <div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full mt-4">
         {/* Sidebar */}
         <aside className="w-80 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col shadow-sm z-0 rounded-2xl overflow-hidden m-2">
-          
           <div className="p-4 border-b border-gray-100">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -646,7 +960,6 @@ export default function Dashboard() {
           </div>
 
           <div className="flex border-b border-gray-200">
-            {/* CHATS TAB WITH ALERT BADGE */}
             <button
               onClick={() => setActiveTab('chats')}
               className={cn(
@@ -657,7 +970,7 @@ export default function Dashboard() {
               )}
             >
               <MessageCircle className="w-4 h-4" />
-              Chats ({conversations?.length || 0})
+              Chats ({allConversations.length})
               {totalUnreadMessages > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-md ring-2 ring-white animate-pulse">
                   {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
@@ -682,19 +995,20 @@ export default function Dashboard() {
             <ul className="flex-1 overflow-y-auto divide-y divide-gray-50">
               {loading || conversationsLoading ? (
                 Array(5).fill(0).map((_, i) => <UserListSkeleton key={i} />)
-              ) : filteredConversations.length === 0 ? (
+              ) : searchedFilteredConversations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-center px-4">
                   <MessageCircle className="w-12 h-12 text-gray-300 mb-3" />
                   <p className="text-gray-500 text-sm">No conversations yet</p>
                   <p className="text-gray-400 text-xs mt-1">Click "All Users" tab to start chatting</p>
                 </div>
               ) : (
-                filteredConversations.map((conversation) => {
+                searchedFilteredConversations.map((conversation) => {
                   const otherUser = getOtherUser(conversation);
                   if (!otherUser) return null;
                   
                   const isOnline = isUserOnlineUpdated(otherUser._id || otherUser.id);
                   const unreadCount = unreadCounts[conversation._id] || 0;
+                  const isAdminConv = conversation._id === 'admin_special_conversation';
                   
                   return (
                     <li
@@ -713,11 +1027,13 @@ export default function Dashboard() {
                           "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-sm",
                           unreadCount > 0 && activeConversation?._id !== conversation._id
                             ? "bg-gradient-to-br from-orange-500 to-red-600 ring-2 ring-orange-300"
-                            : "bg-gradient-to-br from-blue-400 to-blue-600"
+                            : isAdminConv
+                              ? "bg-gradient-to-br from-purple-500 to-purple-700 ring-2 ring-purple-300"
+                              : "bg-gradient-to-br from-blue-400 to-blue-600"
                         )}>
                           {getInitials(otherUser.name)}
                         </div>
-                        {isOnline && unreadCount === 0 && (
+                        {isOnline && unreadCount === 0 && !isAdminConv && (
                           <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 ring-2 ring-white rounded-full animate-pulse"></span>
                         )}
                         {unreadCount > 0 && (
@@ -735,7 +1051,7 @@ export default function Dashboard() {
                             )}>
                               {otherUser.name}
                             </span>
-                            {otherUser.role === 'admin' && (
+                            {(otherUser.role === 'admin' || isAdminConv) && (
                               <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">
                                 Admin
                               </span>
@@ -757,8 +1073,10 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <div className="ml-2 text-xs">
-                        {isOnline ? (
+                        {isOnline && !isAdminConv ? (
                           <span className="text-green-600 font-medium">● Online</span>
+                        ) : isAdminConv ? (
+                          <span className="text-purple-600 font-medium">★ Admin</span>
                         ) : (
                           <span className="text-gray-400">○ Offline</span>
                         )}
@@ -886,27 +1204,37 @@ export default function Dashboard() {
             ) : selectedUser ? (
               <div className="flex items-center">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center font-bold text-white text-lg shadow-sm">
+                  <div className={cn(
+                    "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm",
+                    selectedUser._id === 'admin_special' || selectedUser.role === 'admin'
+                      ? "bg-gradient-to-br from-purple-500 to-purple-700"
+                      : "bg-gradient-to-br from-blue-400 to-blue-600"
+                  )}>
                     {getInitials(selectedUser.name)}
                   </div>
-                  {isUserOnlineUpdated(selectedUser._id || selectedUser.id) && (
+                  {isUserOnlineUpdated(selectedUser._id || selectedUser.id) && selectedUser._id !== 'admin_special' && (
                     <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 ring-2 ring-white rounded-full animate-pulse"></span>
                   )}
                 </div>
                 <div className="ml-3">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-800 text-lg">{selectedUser.name}</span>
-                    {selectedUser.role === 'admin' && (
+                    {(selectedUser.role === 'admin' || selectedUser._id === 'admin_special') && (
                       <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Admin</span>
                     )}
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    isUserOnlineUpdated(selectedUser._id || selectedUser.id) 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {isUserOnlineUpdated(selectedUser._id || selectedUser.id) ? 'Online' : 'Offline'}
-                  </span>
+                  {selectedUser._id !== 'admin_special' && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      isUserOnlineUpdated(selectedUser._id || selectedUser.id) 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {isUserOnlineUpdated(selectedUser._id || selectedUser.id) ? 'Online' : 'Offline'}
+                    </span>
+                  )}
+                  {selectedUser._id === 'admin_special' && (
+                    <span className="text-xs text-purple-600">Official Admin Account</span>
+                  )}
                 </div>
               </div>
             ) : (
@@ -923,6 +1251,24 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* Reply Indicator */}
+          {replyingTo && (
+            <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Reply className="w-4 h-4 text-yellow-600" />
+                <span className="text-sm text-yellow-700">
+                  Replying to: <span className="font-medium">"{replyingTo.content?.substring(0, 50)}"</span>
+                </span>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="text-yellow-600 hover:text-yellow-800 text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-gradient-to-b from-gray-50 to-white">
@@ -942,14 +1288,20 @@ export default function Dashboard() {
                     <MessageCircle className="w-10 h-10 text-gray-400" />
                   </div>
                   <h3 className="text-gray-600 font-medium mb-1">No messages yet</h3>
-                  <p className="text-gray-400 text-sm">Send a message to start the conversation</p>
+                  <p className="text-gray-400 text-sm">
+                    {selectedUser._id === 'admin_special' || selectedUser.role === 'admin' 
+                      ? 'Admin messages will appear here. Click reply to respond.' 
+                      : 'Send a message to start the conversation'}
+                  </p>
                 </div>
               </div>
             ) : (
-              messages.map((msg, index) => {
+              [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((msg, index) => {
                 const currentUserId = currentUser?.id || currentUser?._id;
                 const senderId = msg.senderId || msg.sender?._id;
                 const isSent = senderId === currentUserId;
+                const isAdminMessage = msg.isAdminMessage || msg.sender?.role === 'admin';
+                const isReplyToAdmin = msg.isReplyToAdmin;
                 
                 const uniqueKey = `${msg._id || msg.id || index}_${msg.createdAt || Date.now()}_${index}`;
                 
@@ -960,24 +1312,67 @@ export default function Dashboard() {
                   >
                     <div className={`max-w-md px-5 py-2.5 rounded-2xl shadow-sm relative ${
                       isSent
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-sm' 
-                        : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
+                        ? isReplyToAdmin
+                          ? 'bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-br-sm'
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-sm'
+                        : isAdminMessage
+                          ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-bl-sm'
+                          : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
                     }`}>
+                      {!isSent && isAdminMessage && (
+                        <div className="text-xs text-white/70 mb-1 font-semibold">
+                          📨 Admin Message
+                        </div>
+                      )}
+                      {isSent && isReplyToAdmin && (
+                        <div className="text-xs text-white/70 mb-1 font-semibold">
+                          ✉️ Reply to Admin
+                        </div>
+                      )}
+                      {msg.subject && msg.subject !== 'Message from Admin' && !isSent && (
+                        <div className="text-xs font-semibold text-yellow-200 mb-1">
+                          📌 {msg.subject}
+                        </div>
+                      )}
                       <p className="text-sm leading-relaxed">{msg.content}</p>
-                      <div className={`text-xs mt-1.5 ${isSent ? 'text-blue-100' : 'text-gray-400'} flex items-center gap-1`}>
+                      <div className={`text-xs mt-1.5 ${isSent ? 'text-blue-100' : isAdminMessage ? 'text-purple-100' : 'text-gray-400'} flex items-center gap-1`}>
                         {formatMessageTime(msg.createdAt)}
                         {isSent && (msg.read ? <span className="ml-1">✓✓</span> : <span className="ml-1">✓</span>)}
                       </div>
                       
-                      <button
-                        onClick={() => handleHideMessage(msg._id || msg.id)}
-                        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-gray-500 text-white rounded-full p-1.5 shadow-md hover:bg-gray-600 hover:scale-110"
-                        title="Hide (only for you)"
-                      >
-                        <EyeOff className="w-3.5 h-3.5" />
-                      </button>
+                      {!isSent && isAdminMessage && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setReplyingTo(msg);
+                              toast.success('Reply mode activated', { duration: 1500 });
+                            }}
+                            className="absolute -bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-purple-500 text-white rounded-full p-1.5 shadow-md hover:bg-purple-600 hover:scale-110"
+                            title="Reply to Admin"
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAdminMessage(msg._id)}
+                            className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 hover:scale-110"
+                            title="Delete message (only for you)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                       
-                      {isSent && (
+                      {!isAdminMessage && !isReplyToAdmin && (
+                        <button
+                          onClick={() => handleHideMessage(msg._id || msg.id)}
+                          className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-gray-500 text-white rounded-full p-1.5 shadow-md hover:bg-gray-600 hover:scale-110"
+                          title="Hide (only for you)"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      
+                      {isSent && !isAdminMessage && !isReplyToAdmin && (
                         <button
                           onClick={() => {
                             const msgId = msg._id || msg.id;
@@ -995,8 +1390,11 @@ export default function Dashboard() {
                 );
               })
             )}
+            {/* Auto-scroll anchor */}
+            <div ref={messagesEndRef} />
           </div>
 
+          {/* Input Area */}
           {!loading && selectedUser && (
             <div className="border-t border-gray-200 px-6 py-4 bg-white">
               <div className="flex items-center space-x-3">
@@ -1008,7 +1406,7 @@ export default function Dashboard() {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder={`Message ${selectedUser.name}...`}
+                    placeholder={replyingTo ? `Reply to Admin...` : `Message ${selectedUser.name}...`}
                     rows={1}
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
                     style={{ minHeight: '44px', maxHeight: '120px' }}
@@ -1020,7 +1418,13 @@ export default function Dashboard() {
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim()}
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-2.5 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={cn(
+                    "text-white p-2.5 rounded-xl transition-all",
+                    replyingTo
+                      ? "bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700"
+                      : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700",
+                    !inputMessage.trim() && "opacity-50 cursor-not-allowed"
+                  )}
                 >
                   <Send className="w-5 h-5" />
                 </button>
@@ -1063,11 +1467,7 @@ export default function Dashboard() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (messageToDelete) {
-                      handleDeleteMessage(messageToDelete);
-                    }
-                  }}
+                  onClick={confirmDeleteAdminMessage}
                   className="flex-1 h-10 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Yes, Delete

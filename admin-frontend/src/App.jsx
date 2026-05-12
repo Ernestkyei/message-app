@@ -8,6 +8,7 @@ import AdminLayout from './layouts/AdminLayout';
 import Dashboard from './pages/admin/dashboard/Dashboard';
 import Users from './pages/admin/users/Users';
 import Messages from './pages/admin/messagesLogs/messageLogs';
+import SendMessages from './pages/admin/sendMessage/SendMessages'; 
 import Notifications from './pages/admin/notifications/Notifications';
 import Settings from './pages/admin/settings/Settings';
 import useAuthStore from './stores/authStore';
@@ -45,6 +46,7 @@ function App() {
           <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/messages" element={<Messages />} />
+          <Route path="/admin/send-messages" element={<SendMessages />} /> 
           <Route path="/admin/notifications" element={<Notifications />} />
           <Route path="/admin/settings" element={<Settings />} />
         </Route>

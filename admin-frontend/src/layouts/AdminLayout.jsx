@@ -1,5 +1,5 @@
 // admin-frontend/src/layouts/AdminLayout.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -15,13 +15,59 @@ import {
 import { Header } from '@/components/shared';
 import toast from 'react-hot-toast';
 import useAuthStore from '@/stores/authStore';
+import { io } from 'socket.io-client';
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [socket, setSocket] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(false);
   const navigate = useNavigate();
-  const { logout } = useAuthStore(); // Only need logout now
+  const { logout, getToken, user } = useAuthStore();
+
+  // Connect to Socket.IO when admin logs in
+  useEffect(() => {
+    const authToken = getToken();
+    
+    if (authToken && user?.role === 'admin') {
+      // Simplified connection - only polling (more reliable for Firefox)
+      const socketInstance = io('http://localhost:4000', {
+        query: { token: authToken },
+        transports: ['polling'], // Only polling - avoids WebSocket issues
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+      });
+
+      socketInstance.on('connect', () => {
+        console.log('✅ Admin Socket connected');
+        setSocketConnected(true);
+      });
+
+      socketInstance.on('connect_error', (error) => {
+        console.error('Socket connection error:', error.message);
+        setSocketConnected(false);
+      });
+
+      socketInstance.on('disconnect', (reason) => {
+        console.log('❌ Admin Socket disconnected:', reason);
+        setSocketConnected(false);
+      });
+
+      setSocket(socketInstance);
+
+      // Cleanup on unmount
+      return () => {
+        if (socketInstance) {
+          socketInstance.disconnect();
+        }
+      };
+    }
+  }, [getToken, user]);
 
   const handleLogout = async () => {
+    if (socket) {
+      socket.disconnect();
+    }
     await logout();
     toast.success('Logged out successfully');
     navigate('/login');
@@ -30,7 +76,7 @@ const AdminLayout = () => {
   const navItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/users', icon: Users, label: 'User Management' },
-    { path: '/admin/send-message', icon: Send, label: 'Send Message' },
+    { path: '/admin/send-messages', icon: Send, label: 'Send Message' },
     { path: '/admin/messages', icon: MessageSquare, label: 'Messaging Logs' },
     { path: '/admin/notifications', icon: Bell, label: 'Notifications' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' },
@@ -38,6 +84,16 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Socket connection status indicator - optional */}
+      {socketConnected && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            Real-time connected
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'} bg-gray-900 text-white`}>
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
@@ -76,7 +132,7 @@ const AdminLayout = () => {
 
       {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
-        <Header /> {/* No props needed! */}
+        <Header />
         <main className="p-6">
           <Outlet />
         </main>

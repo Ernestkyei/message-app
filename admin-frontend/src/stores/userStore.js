@@ -16,8 +16,7 @@ const useUserStore = create((set, get) => ({
         try {
             const response = await api.get(endpoints.admin.getAllUsers, {
                 params: { page, limit }
-            });
-            
+            });            
             const usersData = response.data.data || [];
             const pagination = response.data.pagination || {};
             
@@ -39,10 +38,8 @@ const useUserStore = create((set, get) => ({
     getUserStats: async () => {
         set({ isLoading: true, error: null });
         try {
-            const response = await api.get(endpoints.admin.getUserStats);
-            
-            const statsData = response.data?.data || response.data;
-            
+            const response = await api.get(endpoints.admin.getUserStats);            
+            const statsData = response.data?.data || response.data;            
             const formattedStats = {
                 total: statsData.total || 0,
                 admins: statsData.admins || 0,
@@ -81,10 +78,8 @@ const useUserStore = create((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             // Changed from api.put to api.patch
-            const response = await api.patch(endpoints.admin.updateUser(id), userData);
-            
-            console.log('Update response:', response.data);
-            
+            const response = await api.patch(endpoints.admin.updateUser(id), userData);            
+            console.log('Update response:', response.data);            
             if (response.data.success) {
                 const { users } = get();
                 const updatedUsers = users.map(user => 
@@ -158,8 +153,7 @@ const useUserStore = create((set, get) => ({
         }
     },
 
-    clearError: () => set({ error: null }),
-    
+    clearError: () => set({ error: null }),    
     reset: () => set({ 
         users: [], 
         selectedUser: null, 

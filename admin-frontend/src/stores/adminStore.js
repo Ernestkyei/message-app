@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '../service/api';
 import endpoints from '../endpoints/endpoints';
+import toast from 'react-hot-toast';
 
 const useAdminStore = create((set, get) => ({
     dashboardData: null,
@@ -10,7 +11,6 @@ const useAdminStore = create((set, get) => ({
     loadDashboard: async () => {
         set({ adminLoading: true, adminError: null });
         try {
-            // ✅ NOW USING ENDPOINT - NO HARDCODED PATH
             const response = await api.get(endpoints.admin.dashboard);
             set({ dashboardData: response.data, adminLoading: false });
             return { success: true, data: response.data };
@@ -50,11 +50,9 @@ const useAdminStore = create((set, get) => ({
     getSystemAnalytics: async (params = {}) => {
         set({ adminLoading: true, adminError: null });
         try {
-            // ✅ USING ENDPOINT - NO HARDCODED PATH
             const response = await api.get(endpoints.analytics.getSystemAnalytics, { params });
             console.log('Raw analytics response:', response.data);
             
-            // Handle nested data structure - extract data from response.data.data if it exists
             const analyticsData = response.data?.data || response.data;
             
             set({ adminLoading: false });
@@ -72,7 +70,6 @@ const useAdminStore = create((set, get) => ({
     getSystemHealth: async () => {
         set({ adminLoading: true, adminError: null });
         try {
-            // ✅ USING ENDPOINT - NO HARDCODED PATH
             const response = await api.get(endpoints.admin.health);
             set({ adminLoading: false });
             return { success: true, data: response.data };
@@ -88,7 +85,6 @@ const useAdminStore = create((set, get) => ({
     getAdminActivityLog: async (page = 1, limit = 50) => {
         set({ adminLoading: true, adminError: null });
         try {
-            // ✅ USING ENDPOINT - NO HARDCODED PATH
             const response = await api.get(endpoints.admin.activityLog, {
                 params: { page, limit }
             });
@@ -106,7 +102,6 @@ const useAdminStore = create((set, get) => ({
     getSystemSettings: async () => {
         set({ adminLoading: true, adminError: null });
         try {
-            // ✅ USING ENDPOINT - NO HARDCODED PATH
             const response = await api.get(endpoints.admin.settings);
             set({ adminLoading: false });
             return { success: true, data: response.data };
@@ -122,7 +117,6 @@ const useAdminStore = create((set, get) => ({
     updateSystemSettings: async (settings) => {
         set({ adminLoading: true, adminError: null });
         try {
-            
             const response = await api.put(endpoints.admin.settings, settings);
             set({ adminLoading: false });
             return { success: true, data: response.data };
@@ -132,6 +126,28 @@ const useAdminStore = create((set, get) => ({
                 adminLoading: false 
             });
             return { success: false, error: error.response?.data?.message };
+        }
+    },
+
+    // ========== DIRECT MESSAGING (1-on-1) ==========
+    sendDirectMessage: async (userId, message, subject = '') => {
+        set({ adminLoading: true, adminError: null });
+        try {
+            // UPDATED: Using the correct endpoint from endpoints.js
+            const response = await api.post(endpoints.admin.sendMessage, {
+                userId,
+                message,
+                subject
+            });
+            set({ adminLoading: false });
+            toast.success(response.data.message || 'Message sent successfully!');
+            return { success: true, data: response.data };
+        } catch (error) {
+            console.error('Send message error:', error);
+            const errorMsg = error.response?.data?.message || 'Failed to send message';
+            set({ adminError: errorMsg, adminLoading: false });
+            toast.error(errorMsg);
+            return { success: false, error: errorMsg };
         }
     },
 

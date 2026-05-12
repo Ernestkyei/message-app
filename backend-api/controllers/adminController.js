@@ -184,3 +184,112 @@ exports.getSystemAnalytics = async (req, res, next) => {
         next(error);
     }
 };
+
+// ========== DIRECT MESSAGING ==========
+
+exports.sendDirectMessage = async (req, res, next) => {
+    try {
+        const { userId, message, subject } = req.body;
+        const adminId = req.user.id;
+        
+        if (!userId || !message || message.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID and message are required'
+            });
+        }
+        
+        // Check if user exists
+        const User = require('../models/userModel');
+        const targetUser = await User.findById(userId).select('name email');
+        if (!targetUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Get admin info
+        const admin = await User.findById(adminId).select('name email');
+        
+        // Send real-time notification via Socket.IO if user is online
+        const io = req.app.get('io');
+        if (io) {
+            // Emit to multiple room formats to ensure delivery
+            io.to(userId.toString()).emit('adminDirectMessage', {
+                from: adminId,
+                fromName: admin.name,
+                fromEmail: admin.email,
+                message: message,
+                subject: subject || 'Message from Admin',
+                timestamp: new Date(),
+                type: 'admin'
+            });
+            
+            io.to(`user_${userId}`).emit('adminDirectMessage', {
+                from: adminId,
+                fromName: admin.name,
+                fromEmail: admin.email,
+                message: message,
+                subject: subject || 'Message from Admin',
+                timestamp: new Date(),
+                type: 'admin'
+            });
+            
+            io.to(String(userId)).emit('newMessage', {
+                type: 'admin',
+                from: admin.name,
+                fromId: adminId,
+                content: message,
+                subject: subject || 'Message from Admin',
+                timestamp: new Date()
+            });
+            
+            console.log(`📡 Socket emitted to rooms: ${userId}, user_${userId}, ${String(userId)}`);
+        } else {
+            console.log('⚠️ Socket.io not available');
+        }
+        
+        // Try to save message to database if Message model exists
+        try {
+            const Message = require('../models/messageModel');
+            if (Message) {
+                const savedMessage = await Message.create({
+                    sender: adminId,
+                    senderModel: 'Admin',
+                    recipient: userId,
+                    recipientModel: 'User',
+                    subject: subject || 'Message from Admin',
+                    content: message,
+                    isRead: false,
+                    createdAt: new Date()
+                });
+                console.log('💾 Message saved to database:', savedMessage._id);
+            }
+        } catch (dbError) {
+            // Message model might not exist yet, that's okay
+            console.log('Note: Message not saved to database (model may not exist):', dbError.message);
+        }
+        
+        console.log(`📨 Admin ${admin.name} sent message to ${targetUser.name}`);
+        console.log(`   Subject: ${subject || 'No subject'}`);
+        console.log(`   Message: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
+        
+        res.status(200).json({
+            success: true,
+            message: `Message sent to ${targetUser.name}`,
+            data: {
+                to: targetUser.name,
+                toEmail: targetUser.email,
+                from: admin.name,
+                subject: subject || 'Message from Admin',
+                message: message,
+                sentAt: new Date()
+            }
+        });
+        
+    } catch (error) {
+        console.error('Send message error:', error);
+        next(error);
+    }
+};

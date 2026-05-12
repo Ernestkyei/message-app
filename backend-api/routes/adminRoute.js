@@ -32,4 +32,7 @@ router.delete('/messages/:id', adminController.deleteMessage);
 // ========== ANALYTICS FOR CHARTS ==========
 router.get('/analytics', adminController.getSystemAnalytics);
 
+// ========== DIRECT MESSAGING ==========
+router.post('/send-message', adminController.sendDirectMessage);
+
 module.exports = router;
