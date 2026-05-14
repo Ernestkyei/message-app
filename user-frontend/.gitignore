@@ -25,3 +25,5 @@ dist-ssr
 
 # frontend/.gitignore - add this line if not there
 .env
+.env.local
+.env.*.local

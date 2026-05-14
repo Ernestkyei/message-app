@@ -1,5 +1,7 @@
 import { io } from 'socket.io-client';
 
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000';
+
 class WebSocketService {
     constructor() {
         this.socket = null;
@@ -26,7 +28,9 @@ class WebSocketService {
             console.warn('Could not extract user ID from token');
         }
 
-        this.socket = io('http://localhost:4000', {
+        console.log('🔌 Connecting WebSocket to:', WS_URL);
+
+        this.socket = io(WS_URL, {
             query: { 
                 token: token,
                 userId: this.currentUserId  // IMPORTANT: Send userId in query
@@ -39,7 +43,7 @@ class WebSocketService {
         });
 
         this.socket.on('connect', () => {
-            console.log('✅ WebSocket connected');
+            console.log('✅ WebSocket connected to:', WS_URL);
             this.isConnected = true;
             
             // IMPORTANT: Join room with user ID
