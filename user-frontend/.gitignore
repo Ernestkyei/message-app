@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# frontend/.gitignore - add this line if not there
+.env
