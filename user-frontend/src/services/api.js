@@ -1,13 +1,10 @@
 import axios from 'axios';
 import useAuthStore from '../stores/authStore'; 
 
-// No fallback - must be set in environment
-const API_BASE = import.meta.env.VITE_API_URL;
+// TEMPORARY HARDCODE - Remove after Render works
+const API_BASE = 'https://message-app-backend-api.onrender.com/api';
 
-if (!API_BASE) {
-  throw new Error('VITE_API_URL environment variable is not set!');
-}
-
+console.log('🔗 API Base URL:', API_BASE);
 
 export const api = axios.create({
     baseURL: API_BASE,
