@@ -1,10 +1,20 @@
 import axios from 'axios';
 import useAuthStore from '../stores/authStore'; 
 
-const API_BASE = 'http://localhost:4000/api';
+// No fallback - must be set in environment
+const API_BASE = import.meta.env.VITE_API_URL;
+
+if (!API_BASE) {
+  throw new Error('VITE_API_URL environment variable is not set!');
+}
+
 
 export const api = axios.create({
     baseURL: API_BASE,
+    withCredentials: true,
+    headers: {
+        'Content-Type': 'application/json',
+    },
 });
 
 // Automatically add token to every request
@@ -27,7 +37,5 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-
-
 
 export default api;
