@@ -6,7 +6,7 @@ import { endpoints } from '@/config/endpoints/endpoints';
 import useAuthStore from '@/stores/authStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
 
 const Login = () => {
     const [page, setPage] = useState("login");
@@ -242,8 +242,17 @@ const Login = () => {
                                 className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg shadow-blue-500/25 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed group"
                             >
                                 <div className="flex items-center justify-center gap-2">
-                                    <span>{page === "login" ? "Sign In" : "Create Account"}</span>
-                                    <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <span>{page === "login" ? "Signing in..." : "Creating account..."}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>{page === "login" ? "Sign In" : "Create Account"}</span>
+                                            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                                        </>
+                                    )}
                                 </div>
                             </Button>
                         </div>
