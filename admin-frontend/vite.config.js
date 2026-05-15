@@ -13,4 +13,13 @@ export default defineConfig({
   server: {
     port: 5000,
   },
+  build: {
+    minify: 'terser',  // This requires terser to be installed
+    terserOptions: {
+      compress: {
+        drop_console: true,      // Removes all console.log in production
+        drop_debugger: true,     // Removes debugger statements
+      },
+    },
+  },
 })
