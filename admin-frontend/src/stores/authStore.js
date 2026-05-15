@@ -3,9 +3,28 @@ import { create } from 'zustand';
 import api from '../service/api';
 import endpoints from '../endpoints/endpoints';
 
+// Safe function to get user from localStorage
+const getStoredUser = () => {
+    const userStr = localStorage.getItem('user');
+    
+    // Check for all invalid values
+    if (!userStr || userStr === 'undefined' || userStr === 'null' || userStr === '') {
+        return null;
+    }
+    
+    try {
+        return JSON.parse(userStr);
+    } catch (error) {
+        console.error('Failed to parse user from localStorage:', error);
+        // Remove corrupted data
+        localStorage.removeItem('user');
+        return null;
+    }
+};
+
 const useAuthStore = create((set, get) => ({
-    token: localStorage.getItem('token'),
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    token: localStorage.getItem('token') || null,
+    user: getStoredUser(),  // Use safe function instead of direct JSON.parse
     isLoading: false,
 
     login: async (email, password) => {
@@ -33,7 +52,6 @@ const useAuthStore = create((set, get) => ({
         localStorage.removeItem('user');
     },
 
-    // Add this getToken method to easily access token
     getToken: () => {
         return get().token || localStorage.getItem('token');
     },
