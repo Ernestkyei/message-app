@@ -29,13 +29,18 @@ const AdminLayout = () => {
     const authToken = getToken();
     
     if (authToken && user?.role === 'admin') {
-      // Simplified connection - only polling (more reliable for Firefox)
-      const socketInstance = io('http://localhost:4000', {
+      // ✅ USE ENVIRONMENT VARIABLE - FIXED!
+      const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000';
+      
+      console.log('🔌 Admin socket connecting to:', WS_URL);
+      
+      const socketInstance = io(WS_URL, {  // ← NOW USING ENV VAR
         query: { token: authToken },
-        transports: ['polling'], // Only polling - avoids WebSocket issues
+        transports: ['polling', 'websocket'], // Both for reliability
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
+        withCredentials: true,
       });
 
       socketInstance.on('connect', () => {
